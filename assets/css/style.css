@@ -1,42 +1,117 @@
 /* Sembunyikan tombol saat builder aktif */
-body.themify_builder_active #tfn-toggle-mode { display: none !important; }
+body.themify_builder_active #wfn-toggle-mode {
+    display: none !important;
+}
 
 /* Style Tombol - Melayang (Fixed) */
-#tfn-toggle-mode { 
-    position: fixed; bottom: 30px; right: 30px; z-index: 9999999;
-    background: #222; color: #fff; padding: 12px 24px; border-radius: 50px; 
-    cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
-    font-family: sans-serif; font-weight: 600; border: none; font-size: 14px;
+#wfn-toggle-mode {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 9999999;
+    background: #222;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    font-family: sans-serif;
+    font-weight: 600;
+    border: none;
+    font-size: 14px;
     transition: all 0.3s ease;
 }
-#tfn-toggle-mode:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+
+#wfn-toggle-mode:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
 
 /* Overlay Gelap */
-#tfn-canvas-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 999990; cursor: crosshair; background: rgba(0,0,0,0.1); display: none;
+#wfn-canvas-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999990;
+    cursor: crosshair;
+    background: rgba(0, 0, 0, 0.1);
+    display: none;
 }
 
 /* Pin Merah */
-.tfn-pin {
-    position: absolute; width: 32px; height: 32px; background: #E91E63;
-    border-radius: 50% 50% 50% 0; border: 2px solid #fff; 
-    box-shadow: 0 3px 8px rgba(0,0,0,0.4);
-    transform: translate(-50%, -100%) rotate(-45deg); 
-    cursor: pointer; z-index: 999995; 
-    display: flex; align-items: center; justify-content: center;
+.wfn-pin {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    background: #ff0000;
+    border-radius: 50% 50% 50% 0;
+    border: 2px solid #fff;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+    transform: translate(-50%, -100%) rotate(-45deg);
+    cursor: pointer;
+    z-index: 999995;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: transform 0.2s;
 }
-.tfn-pin:hover { transform: translate(-50%, -110%) rotate(-45deg) scale(1.1); z-index: 999999; }
-.tfn-pin span { transform: rotate(45deg); color: #fff; font-weight: bold; font-family: sans-serif; }
+
+.wfn-pin:hover {
+    transform: translate(-50%, -110%) rotate(-45deg) scale(1.1);
+    z-index: 999999;
+}
+
+.wfn-pin span {
+    transform: rotate(45deg);
+    color: #fff;
+    font-weight: bold;
+    font-family: sans-serif;
+}
 
 /* Kotak Input */
-.tfn-comment-box {
-    position: absolute; background: #fff; padding: 15px; border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 260px; z-index: 999999;
-    font-family: sans-serif; border: 1px solid #ddd;
+.wfn-comment-box {
+    position: absolute;
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    width: 260px;
+    z-index: 999999;
+    font-family: sans-serif;
+    border: 1px solid #ddd;
 }
-.tfn-comment-box textarea { width: 100%; height: 70px; margin-bottom: 10px; padding: 8px; border:1px solid #eee; width: 90%; }
-.tfn-btn-group { display: flex; gap: 5px; justify-content: flex-end; }
-.tfn-save-btn { background: #E91E63; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-.tfn-cancel-btn { background: #eee; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+
+.wfn-comment-box textarea {
+    width: 100%;
+    height: 70px;
+    margin-bottom: 10px;
+    padding: 8px;
+    border: 1px solid #eee;
+    width: 90%;
+}
+
+.wfn-btn-group {
+    display: flex;
+    gap: 5px;
+    justify-content: flex-end;
+}
+
+.wfn-save-btn {
+    background: #E91E63;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.wfn-cancel-btn {
+    background: #eee;
+    color: #333;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}

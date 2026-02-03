@@ -3,8 +3,8 @@ jQuery(document).ready(function ($) {
     if ($('body').hasClass('themify_builder_active')) return;
 
     // Inject Overlay
-    if ($('#tfn-canvas-overlay').length === 0) {
-        $('body').append('<div id="tfn-canvas-overlay"></div>');
+    if ($('#wfn-canvas-overlay').length === 0) {
+        $('body').append('<div id="wfn-canvas-overlay"></div>');
     }
 
     // Load Pins LANGSUNG
@@ -13,57 +13,57 @@ jQuery(document).ready(function ($) {
     let isModeActive = false;
 
     // Toggle Button Logic
-    $(document).on('click', '#tfn-toggle-mode', function (e) {
+    $(document).on('click', '#wfn-toggle-mode', function (e) {
         e.preventDefault();
         e.stopPropagation();
 
         isModeActive = !isModeActive;
 
         if (isModeActive) {
-            $('#tfn-canvas-overlay').fadeIn(200);
+            $('#wfn-canvas-overlay').fadeIn(200);
             $(this).text('Keluar Mode Komentar').css('background', '#E91E63');
         } else {
-            $('#tfn-canvas-overlay').fadeOut(200);
+            $('#wfn-canvas-overlay').fadeOut(200);
             $(this).text('Aktifkan Mode Komentar').css('background', '#222');
-            $('.tfn-comment-box').remove();
+            $('.wfn-comment-box').remove();
         }
     });
 
     // Klik Overlay (Add Note)
-    $(document).on('click', '#tfn-canvas-overlay', function (e) {
-        if ($(e.target).closest('.tfn-pin, .tfn-comment-box, #tfn-toggle-mode').length) return;
+    $(document).on('click', '#wfn-canvas-overlay', function (e) {
+        if ($(e.target).closest('.wfn-pin, .wfn-comment-box, #wfn-toggle-mode').length) return;
 
-        $('.tfn-comment-box').remove();
+        $('.wfn-comment-box').remove();
 
         let x = e.pageX;
         let y = e.pageY;
 
         let inputHtml = `
-            <div class='tfn-comment-box' style='top:${y}px; left:${x}px'>
+            <div class='wfn-comment-box' style='top:${y}px; left:${x}px'>
                 <textarea placeholder='Tulis revisi di sini...'></textarea>
-                <div class='tfn-btn-group'>
-                    <button class='tfn-cancel-btn'>Batal</button>
-                    <button class='tfn-save-btn'>Simpan</button>
+                <div class='wfn-btn-group'>
+                    <button class='wfn-cancel-btn'>Batal</button>
+                    <button class='wfn-save-btn'>Simpan</button>
                 </div>
             </div>
         `;
         $('body').append(inputHtml);
-        $('.tfn-save-btn').data('x', x).data('y', y);
+        $('.wfn-save-btn').data('x', x).data('y', y);
     });
 
     // Save Note
-    $(document).on('click', '.tfn-save-btn', function () {
-        let box = $(this).closest('.tfn-comment-box');
+    $(document).on('click', '.wfn-save-btn', function () {
+        let box = $(this).closest('.wfn-comment-box');
         let msg = box.find('textarea').val();
         let x = $(this).data('x');
         let y = $(this).data('y');
 
-        if (msg && typeof tfn_ajax !== 'undefined') {
+        if (msg && typeof wfn_ajax !== 'undefined') {
             let btn = $(this);
             btn.text('...');
-            $.post(tfn_ajax.url, {
-                action: 'tfn_save_note',
-                nonce: tfn_ajax.nonce,
+            $.post(wfn_ajax.url, {
+                action: 'wfn_save_note',
+                nonce: wfn_ajax.nonce,
                 note: msg,
                 pos_x: x,
                 pos_y: y,
@@ -83,19 +83,19 @@ jQuery(document).ready(function ($) {
         }
     });
 
-    $(document).on('click', '.tfn-cancel-btn', function () {
-        $(this).closest('.tfn-comment-box').remove();
+    $(document).on('click', '.wfn-cancel-btn', function () {
+        $(this).closest('.wfn-comment-box').remove();
     });
 
     function loadPins() {
-        if (typeof tfn_ajax === 'undefined') return;
-        $.get(tfn_ajax.url, {
-            action: 'tfn_get_notes',
-            nonce: tfn_ajax.nonce,
+        if (typeof wfn_ajax === 'undefined') return;
+        $.get(wfn_ajax.url, {
+            action: 'wfn_get_notes',
+            nonce: wfn_ajax.nonce,
             url: window.location.href
         }, function (response) {
             if (response.success) {
-                $('.tfn-pin').remove(); // Refresh agar tidak duplikat
+                $('.wfn-pin').remove(); // Refresh agar tidak duplikat
                 response.data.forEach(function (pin) {
                     addPinToScreen(pin.id, pin.meta.x, pin.meta.y, pin.content);
                 });
@@ -104,11 +104,11 @@ jQuery(document).ready(function ($) {
     }
 
     function addPinToScreen(id, x, y, msg) {
-        let pin = `<div class='tfn-pin' title='${msg}' style='top:${y}px; left:${x}px'><span>!</span></div>`;
+        let pin = `<div class='wfn-pin' title='${msg}' style='top:${y}px; left:${x}px'><span>!</span></div>`;
         $('body').append(pin);
 
         // Event Click Pin
-        $('.tfn-pin').last().on('click', function (e) {
+        $('.wfn-pin').last().on('click', function (e) {
             e.stopPropagation();
             alert(msg);
         });

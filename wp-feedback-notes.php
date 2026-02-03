@@ -1,8 +1,8 @@
 <?php
 /*
-Plugin Name: Themify Figma-Style Feedback (Shortcode)
-Description: Menambahkan fitur komentar visual. Gunakan shortcode [figma_feedback] di modul Text Themify.
-Version: 2.3
+Plugin Name: Wordpress Feedback (Shortcode)
+Description: Menambahkan fitur komentar visual. Gunakan shortcode [figma_feedback] di wordpress.
+Version: 2.4
 Author: Radit
 */
 
@@ -15,13 +15,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * The core plugin class that is used to define internationalization,
  * admin-specific hooks, and public-facing site hooks.
  */
-require plugin_dir_path( __FILE__ ) . 'includes/class-tfn-loader.php';
+require plugin_dir_path( __FILE__ ) . 'includes/class-wfn-loader.php';
 
 /**
  * Began execution of the plugin.
  */
-function run_themify_feedback_notes() {
-    $plugin = new TFN_Loader();
+function run_wp_feedback_notes() {
+    $plugin = new WFN_Loader();
     $plugin->run();
 }
-run_themify_feedback_notes();
+run_wp_feedback_notes();

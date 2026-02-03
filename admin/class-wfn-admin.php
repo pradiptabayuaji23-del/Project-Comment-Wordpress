@@ -1,6 +1,6 @@
 <?php
 
-class TFN_Admin {
+class WFN_Admin {
 
     public function init() {
         add_action( 'init', array( $this, 'register_cpt' ) );
@@ -43,6 +43,6 @@ class TFN_Admin {
             'supports'           => array( 'title', 'editor', 'custom-fields' ),
         );
 
-        register_post_type( 'tfn_note', $args );
+        register_post_type( 'wfn_note', $args );
     }
 }
