@@ -13,6 +13,10 @@ class WFN_Public {
 
         add_action( 'wp_ajax_wfn_get_notes', array( $this, 'get_notes_handler' ) );
         add_action( 'wp_ajax_nopriv_wfn_get_notes', array( $this, 'get_notes_handler' ) ); // Guest support
+
+        // Token Verification
+        add_action( 'wp_ajax_wfn_verify_token', array( $this, 'verify_token_handler' ) );
+        add_action( 'wp_ajax_nopriv_wfn_verify_token', array( $this, 'verify_token_handler' ) );
     }
 
     /**
@@ -43,10 +47,26 @@ class WFN_Public {
         
         wp_enqueue_script( 'wfn-script', plugin_dir_url( dirname(__FILE__) ) . 'assets/js/script.js', array('jquery'), '2.4', true );
         
+        $require_token = ( get_option('wfn_feedback_token') && ! is_user_logged_in() ) ? true : false;
+        
         wp_localize_script( 'wfn-script', 'wfn_ajax', array( 
             'url' => admin_url( 'admin-ajax.php' ),
-            'nonce' => wp_create_nonce( 'wfn-nonce' ) // Added nonce for security
+            'nonce' => wp_create_nonce( 'wfn-nonce' ), // Added nonce for security
+            'require_token' => $require_token
         ));
+    }
+
+    public function verify_token_handler() {
+        if ( ! isset( $_POST['token'] ) ) wp_send_json_error( 'Token missing' );
+        
+        $server_token = get_option( 'wfn_feedback_token' );
+        if ( empty( $server_token ) ) wp_send_json_success( 'No token set, free access' );
+
+        if ( $_POST['token'] === $server_token ) {
+            wp_send_json_success( 'Valid token' );
+        } else {
+            wp_send_json_error( 'Invalid token' );
+        }
     }
 
     /**
@@ -56,6 +76,15 @@ class WFN_Public {
         // Verify Nonce
         if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'wfn-nonce' ) ) {
             wp_send_json_error( 'Invalid nonce' );
+        }
+
+        // Verify Token
+        $server_token = get_option( 'wfn_feedback_token' );
+        if ( ! empty( $server_token ) && ! is_user_logged_in() ) {
+            $user_token = isset( $_POST['token'] ) ? sanitize_text_field( $_POST['token'] ) : '';
+            if ( $user_token !== $server_token ) {
+                wp_send_json_error( 'Unauthorized: Invalid Token' );
+            }
         }
 
         $note = sanitize_textarea_field( $_POST['note'] );
@@ -89,6 +118,20 @@ class WFN_Public {
          // Let's add nonce check to be safe as the enqueue is behind login check.
          if ( ! isset( $_GET['nonce'] ) || ! wp_verify_nonce( $_GET['nonce'], 'wfn-nonce' ) ) {
             wp_send_json_error( 'Invalid nonce' );
+        }
+
+        // Verify Token for reading?
+        // Usually reading might be allowed? But request implied "input komentar" requires token.
+        // If we block reading, pins wont show. Let's block reading too to be safe/consistent, 
+        // OR only block writing. User said "client ingin menginput komentar". 
+        // I'll be strict: Client needs token to SEE and INPUT.
+        // Verify Token for reading
+        $server_token = get_option( 'wfn_feedback_token' );
+        if ( ! empty( $server_token ) && ! is_user_logged_in() ) {
+            $user_token = isset( $_GET['token'] ) ? sanitize_text_field( $_GET['token'] ) : '';
+             if ( $user_token !== $server_token ) {
+                wp_send_json_error( 'Unauthorized' );
+            }
         }
 
         $url = sanitize_text_field( $_GET['url'] );
