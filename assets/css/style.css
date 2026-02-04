@@ -49,7 +49,7 @@ body.themify_builder_active #wfn-toggle-mode {
     border-radius: 50% 50% 50% 0;
     border: 2px solid #fff;
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
-    transform: translate(-50%, -100%) rotate(-45deg);
+    transform: translate(-50%, -200%) rotate(-45deg);
     cursor: pointer;
     z-index: 999995;
     display: flex;
@@ -59,7 +59,7 @@ body.themify_builder_active #wfn-toggle-mode {
 }
 
 .wfn-pin:hover {
-    transform: translate(-50%, -110%) rotate(-45deg) scale(1.1);
+    transform: translate(-50%, -210%) rotate(-45deg) scale(1.1);
     z-index: 999999;
 }
 
@@ -72,7 +72,7 @@ body.themify_builder_active #wfn-toggle-mode {
 
 /* Kotak Input */
 .wfn-comment-box {
-    position: absolute;
+    position: fixed;
     background: #fff;
     padding: 15px;
     border-radius: 8px;
