@@ -109,36 +109,49 @@ jQuery(document).ready(function ($) {
 
     // Klik Overlay (Add Note)
     $(document).on('click', '#wfn-canvas-overlay', function (e) {
-        if ($(e.target).closest('.wfn-pin, .wfn-comment-box, #wfn-toggle-mode').length) return;
+        if ($(e.target).closest('.wfn-pin, .wfn-chat-box, #wfn-toggle-mode').length) return;
 
-        $('.wfn-comment-box').remove();
+        $('.wfn-chat-box').remove();
 
         let x = e.pageX;
         let y = e.pageY;
 
-        let inputHtml = `
-            <div class='wfn-comment-box' style='position:fixed; top:${y}px; left:${x}px'>
-                <textarea placeholder='Tulis revisi di sini...'></textarea>
-                <div class='wfn-btn-group'>
-                    <button class='wfn-cancel-btn'>Batal</button>
-                    <button class='wfn-save-btn'>Simpan</button>
-                </div>
-            </div>
-        `;
-        $('body').append(inputHtml);
-        $('.wfn-save-btn').data('x', x).data('y', y);
+        openChatBox(null, x, y, [], null); // New note mode
     });
 
-    // Save Note
-    $(document).on('click', '.wfn-save-btn', function () {
-        let box = $(this).closest('.wfn-comment-box');
-        let msg = box.find('textarea').val();
-        let x = $(this).data('x');
-        let y = $(this).data('y');
+    // Send Message (New Note or Reply)
+    $(document).on('click', '.wfn-chat-send', function () {
+        let box = $(this).closest('.wfn-chat-box');
+        let input = box.find('.wfn-chat-input');
+        let msg = input.val().trim();
+        let postId = box.data('post-id');
+        let x = box.data('x');
+        let y = box.data('y');
 
-        if (msg && typeof wfn_ajax !== 'undefined') {
-            let btn = $(this);
-            btn.text('...');
+        if (!msg) return;
+
+        let btn = $(this);
+        btn.prop('disabled', true);
+
+        if (postId) {
+            // Reply to existing note
+            $.post(wfn_ajax.url, {
+                action: 'wfn_save_reply',
+                nonce: wfn_ajax.nonce,
+                post_id: postId,
+                message: msg,
+                token: userToken
+            }, function(response) {
+                btn.prop('disabled', false);
+                if (response.success) {
+                    appendMessage(box, msg, response.data.author, response.data.is_admin);
+                    input.val('');
+                } else {
+                    handleAuthError(response);
+                }
+            });
+        } else {
+            // Save New Note
             $.post(wfn_ajax.url, {
                 action: 'wfn_save_note',
                 nonce: wfn_ajax.nonce,
@@ -146,29 +159,96 @@ jQuery(document).ready(function ($) {
                 pos_x: x,
                 pos_y: y,
                 url: window.location.href,
-                token: userToken // Pass token
+                token: userToken
             }, function (response) {
+                btn.prop('disabled', false);
                 if (response.success) {
-                    addPinToScreen(response.data.id, x, y, msg);
-                    box.remove();
+                    box.data('post-id', response.data.id);
+                    box.find('.wfn-chat-title').text('Revisi #' + response.data.id);
+                    appendMessage(box, msg, 'Anda', true); // Assume creator is "you"
+                    input.val('');
+                    loadPins(); // Refresh pins
                 } else {
-                    // Check for Unauthorized
-                    let errorMsg = response.data || 'Error';
-                    if (typeof errorMsg === 'string' && errorMsg.indexOf('Unauthorized') !== -1) {
-                         alert('Token tidak valid atau telah berubah. Silakan masukan token baru.');
-                         localStorage.removeItem('wfn_client_token');
-                         userToken = null;
-                         box.remove();
-                         promptForToken(); // Prompt again
-                    } else {
-                        alert('Gagal menyimpan: ' + errorMsg);
-                        btn.text('Simpan');
-                    }
+                    handleAuthError(response);
                 }
-            }).fail(function () {
-                alert('Terjadi kesalahan jaringan.');
-                btn.text('Simpan');
             });
+        }
+    });
+
+    function handleAuthError(response) {
+        let errorMsg = response.data || 'Error';
+        if (typeof errorMsg === 'string' && errorMsg.indexOf('Unauthorized') !== -1) {
+            alert('Token tidak valid atau telah berubah. Silakan masukan token baru.');
+            localStorage.removeItem('wfn_client_token');
+            userToken = null;
+            $('.wfn-chat-box').remove();
+            promptForToken();
+        } else {
+            alert('Gagal: ' + errorMsg);
+        }
+    }
+
+    function appendMessage(box, msg, author, isAdmin) {
+        let body = box.find('.wfn-chat-body');
+        let msgClass = isAdmin ? 'wfn-msg-admin' : 'wfn-msg-client';
+        let html = `
+            <div class='wfn-chat-message ${msgClass}'>
+                <div class='wfn-msg-author'>${author}</div>
+                ${msg}
+            </div>
+            <div class='wfn-clearfix'></div>
+        `;
+        body.append(html);
+        body.scrollTop(body[0].scrollHeight);
+    }
+
+    function openChatBox(postId, x, y, messages, noteContent) {
+        $('.wfn-chat-box').remove();
+
+        let left = Math.min(x + 30, window.innerWidth - 350);
+        let top = Math.min(y, window.innerHeight - 480);
+
+        let title = postId ? 'Revisi #' + postId : 'Revisi Baru';
+
+        let html = `
+            <div class='wfn-chat-box' data-post-id='${postId || ''}' data-x='${x}' data-y='${y}' style='top:${top}px; left:${left}px'>
+                <div class='wfn-chat-header'>
+                    <span class='wfn-chat-title'>${title}</span>
+                    <span class='wfn-chat-close'>&times;</span>
+                </div>
+                <div class='wfn-chat-body'></div>
+                <div class='wfn-chat-footer'>
+                    <input type='text' class='wfn-chat-input' placeholder='Tulis pesan...'>
+                    <button class='wfn-chat-send'>➤</button>
+                </div>
+            </div>
+        `;
+        $('body').append(html);
+
+        let box = $('.wfn-chat-box');
+
+        // If this is an existing note, show the original note content first
+        if (noteContent) {
+            appendMessage(box, noteContent, 'Client', false);
+        }
+
+        // Then show replies
+        if (messages && messages.length > 0) {
+            messages.forEach(m => {
+                appendMessage(box, m.content, m.author, m.is_admin);
+            });
+        }
+
+        box.find('.wfn-chat-input').focus();
+    }
+
+    $(document).on('click', '.wfn-chat-close', function () {
+        $(this).closest('.wfn-chat-box').remove();
+    });
+
+    $(document).on('keypress', '.wfn-chat-input', function(e) {
+        if (e.which === 13) {
+            $(this).closest('.wfn-chat-box').find('.wfn-chat-send').click();
         }
     });
 
@@ -182,32 +262,35 @@ jQuery(document).ready(function ($) {
             action: 'wfn_get_notes',
             nonce: wfn_ajax.nonce,
             url: window.location.href,
-            token: userToken // Pass token
+            token: userToken
         }, function (response) {
             if (response.success) {
-                $('.wfn-pin').remove(); // Refresh agar tidak duplikat
+                $('.wfn-pin').remove();
                 response.data.forEach(function (pin) {
-                    addPinToScreen(pin.id, pin.meta.x, pin.meta.y, pin.content);
+                    addPinToScreen(pin.id, pin.meta.x, pin.meta.y, pin.content, pin.replies);
                 });
             } else {
-                // If failed due to auth, maybe clear token? 
                 if (response.data === 'Unauthorized') {
-                   localStorage.removeItem('wfn_client_token');
-                   userToken = null;
-                   console.log('Token expired or invalid');
+                    localStorage.removeItem('wfn_client_token');
+                    userToken = null;
                 }
             }
         });
     }
 
-    function addPinToScreen(id, x, y, msg) {
-        let pin = `<div class='wfn-pin' title='${msg}' style='top:${y}px; left:${x}px'><span>!</span></div>`;
+    function addPinToScreen(id, x, y, content, replies) {
+        let pin = `<div class='wfn-pin' data-id='${id}' style='top:${y}px; left:${x}px'><span>!</span></div>`;
         $('body').append(pin);
 
-        // Event Click Pin
-        $('.wfn-pin').last().on('click', function (e) {
+        let pinEl = $('.wfn-pin').last();
+        pinEl.data('content', content);
+        pinEl.data('replies', replies || []);
+
+        pinEl.on('click', function (e) {
             e.stopPropagation();
-            alert(msg);
+            let noteContent = $(this).data('content');
+            let noteReplies = $(this).data('replies');
+            openChatBox(id, parseFloat(x), parseFloat(y), noteReplies, noteContent);
         });
     }
 });

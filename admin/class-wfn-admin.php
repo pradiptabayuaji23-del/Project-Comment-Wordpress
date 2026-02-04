@@ -90,7 +90,7 @@ class WFN_Admin {
             'hierarchical'       => false,
             'menu_position'      => 50,
             'menu_icon'          => 'dashicons-format-chat',
-            'supports'           => array( 'title', 'editor', 'custom-fields' ),
+            'supports'           => array( 'title', 'editor', 'custom-fields', 'comments' ),
         );
 
         register_post_type( 'wfn_note', $args );

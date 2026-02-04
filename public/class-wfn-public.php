@@ -17,6 +17,10 @@ class WFN_Public {
         // Token Verification
         add_action( 'wp_ajax_wfn_verify_token', array( $this, 'verify_token_handler' ) );
         add_action( 'wp_ajax_nopriv_wfn_verify_token', array( $this, 'verify_token_handler' ) );
+
+        // Reply Handler
+        add_action( 'wp_ajax_wfn_save_reply', array( $this, 'save_reply_handler' ) );
+        add_action( 'wp_ajax_nopriv_wfn_save_reply', array( $this, 'save_reply_handler' ) );
     }
 
     /**
@@ -145,16 +149,79 @@ class WFN_Public {
         if( $query->have_posts() ) {
             while( $query->have_posts() ) {
                 $query->the_post();
+                $id = get_the_ID();
+                
+                // Get replies (comments)
+                $comments = get_comments( array( 'post_id' => $id, 'order' => 'ASC' ) );
+                $replies = array();
+                foreach ( $comments as $comment ) {
+                    $replies[] = array(
+                        'id' => $comment->comment_ID,
+                        'author' => $comment->comment_author,
+                        'content' => $comment->comment_content,
+                        'is_admin' => $comment->user_id > 0 ? true : false
+                    );
+                }
+
                 $notes[] = array(
-                    'id' => get_the_ID(),
+                    'id' => $id,
                     'content' => get_the_content(),
                     'meta' => array(
-                        'x' => get_post_meta( get_the_ID(), 'wfn_x', true ),
-                        'y' => get_post_meta( get_the_ID(), 'wfn_y', true )
-                    )
+                        'x' => get_post_meta( $id, 'wfn_x', true ),
+                        'y' => get_post_meta( $id, 'wfn_y', true )
+                    ),
+                    'replies' => $replies
                 );
             }
         }
+        wp_reset_postdata();
         wp_send_json_success( $notes );
+    }
+
+    /**
+     * AJAX: Save Reply
+     */
+    public function save_reply_handler() {
+        if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'wfn-nonce' ) ) {
+            wp_send_json_error( 'Invalid nonce' );
+        }
+
+        // Token check for guests
+        $server_token = get_option( 'wfn_feedback_token' );
+        if ( ! empty( $server_token ) && ! is_user_logged_in() ) {
+            $user_token = isset( $_POST['token'] ) ? sanitize_text_field( $_POST['token'] ) : '';
+            if ( $user_token !== $server_token ) {
+                wp_send_json_error( 'Unauthorized' );
+            }
+        }
+
+        $post_id = intval( $_POST['post_id'] );
+        $message = sanitize_textarea_field( $_POST['message'] );
+
+        if ( ! $post_id || empty( $message ) ) {
+            wp_send_json_error( 'Missing data' );
+        }
+
+        $comment_data = array(
+            'comment_post_ID' => $post_id,
+            'comment_content' => $message,
+            'comment_type'    => 'wfn_reply',
+            'user_id'         => get_current_user_id(),
+            'comment_author'  => is_user_logged_in() ? wp_get_current_user()->display_name : 'Client',
+            'comment_approved' => 1
+        );
+
+        $comment_id = wp_insert_comment( $comment_data );
+
+        if ( $comment_id ) {
+            wp_send_json_success( array(
+                'id' => $comment_id,
+                'content' => $message,
+                'author' => $comment_data['comment_author'],
+                'is_admin' => is_user_logged_in()
+            ) );
+        } else {
+            wp_send_json_error( 'Failed to save reply' );
+        }
     }
 }
