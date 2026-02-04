@@ -152,8 +152,18 @@ jQuery(document).ready(function ($) {
                     addPinToScreen(response.data.id, x, y, msg);
                     box.remove();
                 } else {
-                    alert('Gagal menyimpan: ' + (response.data || 'Error'));
-                    btn.text('Simpan');
+                    // Check for Unauthorized
+                    let errorMsg = response.data || 'Error';
+                    if (typeof errorMsg === 'string' && errorMsg.indexOf('Unauthorized') !== -1) {
+                         alert('Token tidak valid atau telah berubah. Silakan masukan token baru.');
+                         localStorage.removeItem('wfn_client_token');
+                         userToken = null;
+                         box.remove();
+                         promptForToken(); // Prompt again
+                    } else {
+                        alert('Gagal menyimpan: ' + errorMsg);
+                        btn.text('Simpan');
+                    }
                 }
             }).fail(function () {
                 alert('Terjadi kesalahan jaringan.');
@@ -182,8 +192,8 @@ jQuery(document).ready(function ($) {
             } else {
                 // If failed due to auth, maybe clear token? 
                 if (response.data === 'Unauthorized') {
-                   // localStorage.removeItem('wfn_client_token');
-                   // userToken = null;
+                   localStorage.removeItem('wfn_client_token');
+                   userToken = null;
                    console.log('Token expired or invalid');
                 }
             }
