@@ -107,16 +107,87 @@ jQuery(document).ready(function ($) {
         });
     });
 
-    // Klik Overlay (Add Note)
+    // Helper: Generate unique selector
+    function getUniqueSelector(el) {
+        if (el.id) return '#' + el.id;
+        if (el === document.body) return 'body';
+
+        let path = [];
+        while (el.parentNode) {
+            let tag = el.tagName.toLowerCase();
+            if (el.id) {
+                path.unshift('#' + el.id);
+                break;
+            } else {
+                let sib = el, nth = 1;
+                while (sib = sib.previousElementSibling) {
+                    if (sib.tagName.toLowerCase() === tag) nth++;
+                }
+                path.unshift(tag + ':nth-of-type(' + nth + ')');
+            }
+            el = el.parentNode;
+        }
+        return path.join(' > ');
+    }
+    
+    // Helper: Get Safe Anchor (Avoid void elements like img, input)
+    function getSafeAnchor(el) {
+        const voidTags = ['img', 'input', 'br', 'hr', 'embed', 'source', 'track', 'wbr', 'area', 'col'];
+        const tag = el.tagName.toLowerCase();
+        
+        // If it's a void tag or SVG part, go up to parent
+        if (voidTags.includes(tag) || el instanceof SVGElement) {
+            return el.parentElement || document.body;
+        }
+        return el;
+    }
+
+    // Klik Overlay (Tambah Catatan)
     $(document).on('click', '#wfn-canvas-overlay', function (e) {
+        // Jika Admin, jangan izinkan buat catatan baru
+        if (wfn_ajax.is_admin) {
+            alert('Admin hanya bisa melihat catatan, tidak bisa membuat baru.');
+            return;
+        }
+
+        // Sembunyikan overlay sementara untuk menemukan elemen di bawahnya
+        $(this).hide();
+        let rawTarget = document.elementFromPoint(e.clientX, e.clientY);
+        $(this).show();
+
+        if (!rawTarget || rawTarget === document.body || rawTarget === document.documentElement) {
+            rawTarget = document.body;
+        }
+        
+        let targetEl = getSafeAnchor(rawTarget);
+
         if ($(e.target).closest('.wfn-pin, .wfn-chat-box, #wfn-toggle-mode').length) return;
 
         $('.wfn-chat-box').remove();
 
-        let x = e.pageX;
-        let y = e.pageY;
+        // Hitung posisi relatif dalam elemen target
+        let rect = targetEl.getBoundingClientRect();
+        
+        // Koordinat relatif terhadap elemen (0-100%)
+        let relX = (e.clientX - rect.left) / rect.width * 100;
+        let relY = (e.clientY - rect.top) / rect.height * 100;
+        
+        // Batasi 0-100 agar tetap di dalam
+        relX = Math.max(0, Math.min(100, relX));
+        relY = Math.max(0, Math.min(100, relY));
 
-        openChatBox(null, x, y, [], null); // New note mode
+        let selector = getUniqueSelector(targetEl);
+
+        // Simpan data sementara
+        window.wfnCurrentPin = {
+            selector: selector,
+            relX: relX,
+            relY: relY,
+            absX: e.pageX, // Fallback/Visual
+            absY: e.pageY  // Fallback/Visual
+        };
+
+        openChatBox(null, e.pageX, e.pageY, [], null); // Mode catatan baru
     });
 
     // Send Message (New Note or Reply)
@@ -152,22 +223,39 @@ jQuery(document).ready(function ($) {
             });
         } else {
             // Save New Note
-            $.post(wfn_ajax.url, {
+            let postData = {
                 action: 'wfn_save_note',
                 nonce: wfn_ajax.nonce,
                 note: msg,
-                pos_x: x,
-                pos_y: y,
+                pos_x: x, // Legacy/Fallback
+                pos_y: y, // Legacy/Fallback
                 url: window.location.href,
                 token: userToken
-            }, function (response) {
+            };
+
+            // If we have selector data, send it
+            if (window.wfnCurrentPin) {
+                postData.selector = window.wfnCurrentPin.selector;
+                postData.pos_x = window.wfnCurrentPin.relX; // Overwrite with %
+                postData.pos_y = window.wfnCurrentPin.relY; // Overwrite with %
+            }
+
+            $.post(wfn_ajax.url, postData, function (response) {
+                let tempPin = window.wfnCurrentPin;
+                window.wfnCurrentPin = null; 
+
                 btn.prop('disabled', false);
                 if (response.success) {
                     box.data('post-id', response.data.id);
                     box.find('.wfn-chat-title').text('Revisi #' + response.data.id);
                     appendMessage(box, msg, 'Anda', true); // Assume creator is "you"
                     input.val('');
-                    loadPins(); // Refresh pins
+                    
+                    if (tempPin && tempPin.selector) {
+                        addPinToScreen(response.data.id, tempPin.relX, tempPin.relY, tempPin.selector, msg, []);
+                    } else {
+                         addPinToScreen(response.data.id, x, y, null, msg, []);
+                    }
                 } else {
                     handleAuthError(response);
                 }
@@ -207,8 +295,29 @@ jQuery(document).ready(function ($) {
 
         let left = Math.min(x + 30, window.innerWidth - 350);
         let top = Math.min(y, window.innerHeight - 480);
+        
+        left = Math.max(10, left);
+        top = Math.max(10, top);
 
         let title = postId ? 'Revisi #' + postId : 'Revisi Baru';
+
+        // Logika Footer:
+        // Hapus fitur balasan (Reply). Input hanya muncul jika ini Catatan Baru (!postId).
+        // Jika catatan sudah ada, tidak ada input (View Only untuk semua).
+        let footerHtml = '';
+        
+        if (!postId) {
+            // Hanya tampilkan input untuk catatan BARU
+            footerHtml = `
+                <div class='wfn-chat-footer'>
+                    <input type='text' class='wfn-chat-input' placeholder='Tulis pesan...'>
+                    <button class='wfn-chat-send'>➤</button>
+                </div>
+            `;
+        } else {
+             // Catatan lama = View Only (Tanpa footer)
+             footerHtml = '';
+        }
 
         let html = `
             <div class='wfn-chat-box' data-post-id='${postId || ''}' data-x='${x}' data-y='${y}' style='top:${top}px; left:${left}px'>
@@ -217,29 +326,26 @@ jQuery(document).ready(function ($) {
                     <span class='wfn-chat-close'>&times;</span>
                 </div>
                 <div class='wfn-chat-body'></div>
-                <div class='wfn-chat-footer'>
-                    <input type='text' class='wfn-chat-input' placeholder='Tulis pesan...'>
-                    <button class='wfn-chat-send'>➤</button>
-                </div>
+                ${footerHtml}
             </div>
         `;
         $('body').append(html);
 
         let box = $('.wfn-chat-box');
 
-        // If this is an existing note, show the original note content first
         if (noteContent) {
             appendMessage(box, noteContent, 'Client', false);
         }
 
-        // Then show replies
         if (messages && messages.length > 0) {
             messages.forEach(m => {
                 appendMessage(box, m.content, m.author, m.is_admin);
             });
         }
 
-        box.find('.wfn-chat-input').focus();
+        if(!postId) {
+            box.find('.wfn-chat-input').focus();
+        }
     }
 
     $(document).on('click', '.wfn-chat-close', function () {
@@ -256,6 +362,9 @@ jQuery(document).ready(function ($) {
         $(this).closest('.wfn-comment-box').remove();
     });
 
+    // Remove old resize handler (no longer needed)
+    $(window).off('resize.wfn'); 
+
     function loadPins() {
         if (typeof wfn_ajax === 'undefined') return;
         $.get(wfn_ajax.url, {
@@ -266,8 +375,9 @@ jQuery(document).ready(function ($) {
         }, function (response) {
             if (response.success) {
                 $('.wfn-pin').remove();
+                
                 response.data.forEach(function (pin) {
-                    addPinToScreen(pin.id, pin.meta.x, pin.meta.y, pin.content, pin.replies);
+                    addPinToScreen(pin.id, pin.meta.x, pin.meta.y, pin.meta.selector, pin.content, pin.replies);
                 });
             } else {
                 if (response.data === 'Unauthorized') {
@@ -278,19 +388,50 @@ jQuery(document).ready(function ($) {
         });
     }
 
-    function addPinToScreen(id, x, y, content, replies) {
-        let pin = `<div class='wfn-pin' data-id='${id}' style='top:${y}px; left:${x}px'><span>!</span></div>`;
-        $('body').append(pin);
+    function addPinToScreen(id, x, y, selector, content, replies) {
+        let pin = `<div class='wfn-pin' data-id='${id}' data-selector='${selector || ''}'><span>!</span></div>`;
+        let $pin = $(pin);
+        let appended = false;
 
-        let pinEl = $('.wfn-pin').last();
-        pinEl.data('content', content);
-        pinEl.data('replies', replies || []);
+        if (selector && $(selector).length > 0) {
+            let el = $(selector);
+            // Ensure relative positioning
+            if (el.css('position') === 'static') {
+                el.css('position', 'relative');
+            }
+            el.append($pin);
+            $pin.css({
+                top: parseFloat(y) + '%',
+                left: parseFloat(x) + '%',
+                position: 'absolute'
+            });
+            appended = true;
+        } 
+        
+        if (!appended) {
+            // Legacy/Fallback
+            if (!selector) {
+                $('body').append($pin);
+                $pin.css({
+                    top: y + 'px',
+                    left: x + 'px',
+                    position: 'absolute'
+                });
+            } else {
+                 return; 
+            }
+        }
 
-        pinEl.on('click', function (e) {
+        $pin.data('content', content);
+        $pin.data('replies', replies || []);
+
+        $pin.on('click', function (e) {
             e.stopPropagation();
+            e.preventDefault();
             let noteContent = $(this).data('content');
             let noteReplies = $(this).data('replies');
-            openChatBox(id, parseFloat(x), parseFloat(y), noteReplies, noteContent);
+            let rect = this.getBoundingClientRect();
+            openChatBox(id, rect.left, rect.top, noteReplies, noteContent);
         });
     }
 });
