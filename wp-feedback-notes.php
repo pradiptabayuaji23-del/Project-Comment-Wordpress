@@ -1,7 +1,7 @@
 <?php
 /*
-Plugin Name: Wordpress Feedback (Shortcode)
-Description: Menambahkan fitur komentar visual. Gunakan shortcode [figma_feedback] di wordpress.
+Plugin Name: Wordpress Feedback
+Description: Menambahkan fitur komentar visual di wordpress.
 Version: 2.5
 Author: Radit
 */
