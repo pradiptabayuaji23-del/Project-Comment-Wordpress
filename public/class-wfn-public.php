@@ -20,6 +20,60 @@ class WFN_Public {
         // Reply Handler
         add_action( 'wp_ajax_wfn_save_reply', array( $this, 'save_reply_handler' ) );
         add_action( 'wp_ajax_nopriv_wfn_save_reply', array( $this, 'save_reply_handler' ) );
+
+        // Edit Handler
+        add_action( 'wp_ajax_wfn_edit_message', array( $this, 'edit_message_handler' ) );
+        add_action( 'wp_ajax_nopriv_wfn_edit_message', array( $this, 'edit_message_handler' ) );
+    }
+
+// ... (code omitted) ...
+
+    /**
+     * AJAX: Edit Message (Note or Reply)
+     */
+    public function edit_message_handler() {
+        if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'wfn-nonce' ) ) {
+            wp_send_json_error( 'Invalid nonce' );
+        }
+
+        // Token check for guests
+        $server_token = get_option( 'wfn_feedback_token' );
+        if ( ! empty( $server_token ) && ! is_user_logged_in() ) {
+            $user_token = isset( $_POST['token'] ) ? sanitize_text_field( $_POST['token'] ) : '';
+            if ( $user_token !== $server_token ) {
+                wp_send_json_error( 'Unauthorized' );
+            }
+        }
+
+        $id = intval( $_POST['id'] );
+        $type = sanitize_text_field( $_POST['type'] ); // 'post' or 'comment'
+        $content = sanitize_textarea_field( $_POST['content'] );
+
+        if ( ! $id || empty( $content ) || ! in_array($type, ['post', 'comment']) ) {
+            wp_send_json_error( 'Invalid data' );
+        }
+
+        if ( $type === 'post' ) {
+            // Update Post (Main Note)
+            $updated = wp_update_post( array(
+                'ID' => $id,
+                'post_content' => $content
+            ) );
+            if ( is_wp_error( $updated ) ) {
+                wp_send_json_error( $updated->get_error_message() );
+            }
+        } else {
+            // Update Comment (Reply)
+            $updated = wp_update_comment( array(
+                'comment_ID' => $id,
+                'comment_content' => $content
+            ) );
+            if ( ! $updated ) {
+                wp_send_json_error( 'Failed to update comment' );
+            }
+        }
+
+        wp_send_json_success( array( 'content' => $content ) );
     }
 
     /**
@@ -41,6 +95,9 @@ class WFN_Public {
 
         wp_enqueue_style( 'wfn-style', plugin_dir_url( dirname(__FILE__) ) . 'assets/css/style.css', array(), '2.4' );
         
+        // Iconify Web Component
+        wp_enqueue_script( 'iconify-icon', 'https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js', array(), '1.0.8', true );
+
         wp_enqueue_script( 'wfn-script', plugin_dir_url( dirname(__FILE__) ) . 'assets/js/script.js', array('jquery'), '2.4', true );
         
         $require_token = ( get_option('wfn_feedback_token') && ! is_user_logged_in() ) ? true : false;

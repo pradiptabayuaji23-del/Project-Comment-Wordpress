@@ -3,7 +3,7 @@ jQuery(document).ready(function ($) {
     if ($('body').hasClass('themify_builder_active')) return;
 
     let userToken = null;
-    let tokenData = localStorage.getItem('wfn_client_token'); // Expect JSON now {token: '...', expiry: 123}
+    let tokenData = localStorage.getItem('wfn_client_token'); 
     
     if (tokenData) {
         try {
@@ -15,7 +15,6 @@ jQuery(document).ready(function ($) {
                 console.log('Token expired');
             }
         } catch(e) {
-            // Legacy/Invalid format
             localStorage.removeItem('wfn_client_token');
         }
     }
@@ -25,14 +24,10 @@ jQuery(document).ready(function ($) {
         $('body').append('<div id="wfn-canvas-overlay"></div>');
     }
 
-    // Load Pins LANGSUNG if not requiring token or if we have token (verify first?)
-    // Better: Try to load. If fail 403, prompt. But simple approach:
-    // If require_token is true, don't load pins until unlocked.
     if (typeof wfn_ajax !== 'undefined') {
         if (!wfn_ajax.require_token) {
             loadPins();
         } else if (userToken) {
-            // Validate token silently? Or just try to load pins.
             loadPins();
         }
     }
@@ -93,13 +88,12 @@ jQuery(document).ready(function ($) {
         }, function(response) {
             if (response.success) {
                 userToken = input;
-                // Save with expiry 24h
-                let expiry = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+                let expiry = Date.now() + (24 * 60 * 60 * 1000); 
                 localStorage.setItem('wfn_client_token', JSON.stringify({ token: userToken, expiry: expiry }));
                 
                 $('#wfn-token-modal').remove();
                 alert('Token valid! Silakan aktifkan mode komentar.');
-                loadPins(); // Load pins now
+                loadPins(); 
             } else {
                 alert('Token salah!');
                 $('#wfn-submit-token').text('Masuk');
@@ -107,7 +101,6 @@ jQuery(document).ready(function ($) {
         });
     });
 
-    // Helper: Generate unique selector
     function getUniqueSelector(el) {
         if (el.id) return '#' + el.id;
         if (el === document.body) return 'body';
@@ -130,27 +123,22 @@ jQuery(document).ready(function ($) {
         return path.join(' > ');
     }
     
-    // Helper: Get Safe Anchor (Avoid void elements like img, input)
     function getSafeAnchor(el) {
         const voidTags = ['img', 'input', 'br', 'hr', 'embed', 'source', 'track', 'wbr', 'area', 'col'];
         const tag = el.tagName.toLowerCase();
         
-        // If it's a void tag or SVG part, go up to parent
         if (voidTags.includes(tag) || el instanceof SVGElement) {
             return el.parentElement || document.body;
         }
         return el;
     }
 
-    // Klik Overlay (Tambah Catatan)
     $(document).on('click', '#wfn-canvas-overlay', function (e) {
-        // Jika Admin, jangan izinkan buat catatan baru
         if (wfn_ajax.is_admin) {
             alert('Admin hanya bisa melihat catatan, tidak bisa membuat baru.');
             return;
         }
 
-        // Sembunyikan overlay sementara untuk menemukan elemen di bawahnya
         $(this).hide();
         let rawTarget = document.elementFromPoint(e.clientX, e.clientY);
         $(this).show();
@@ -165,32 +153,47 @@ jQuery(document).ready(function ($) {
 
         $('.wfn-chat-box').remove();
 
-        // Hitung posisi relatif dalam elemen target
         let rect = targetEl.getBoundingClientRect();
-        
-        // Koordinat relatif terhadap elemen (0-100%)
         let relX = (e.clientX - rect.left) / rect.width * 100;
         let relY = (e.clientY - rect.top) / rect.height * 100;
         
-        // Batasi 0-100 agar tetap di dalam
         relX = Math.max(0, Math.min(100, relX));
         relY = Math.max(0, Math.min(100, relY));
 
         let selector = getUniqueSelector(targetEl);
 
-        // Simpan data sementara
         window.wfnCurrentPin = {
             selector: selector,
             relX: relX,
             relY: relY,
-            absX: e.pageX, // Fallback/Visual
-            absY: e.pageY  // Fallback/Visual
+            absX: e.pageX, 
+            absY: e.pageY 
         };
 
-        openChatBox(null, e.pageX, e.pageY, [], null); // Mode catatan baru
+        openChatBox(null, e.pageX, e.pageY, [], null); 
     });
 
-    // Send Message (New Note or Reply)
+    // Cancel Edit Mode (Footer)
+    $(document).on('click', '.wfn-cancel-edit-mode', function() {
+        let box = $(this).closest('.wfn-chat-box');
+        resetEditMode(box);
+    });
+
+    function resetEditMode(box) {
+        box.data('edit-id', null);
+        box.data('edit-type', null);
+        box.data('edit-el', null);
+        
+        let input = box.find('.wfn-chat-input');
+        input.val('');
+        input.removeClass('wfn-editing-mode').css('border-color', '');
+        
+        // Reset Send Button Icon (Paper Plane)
+        box.find('.wfn-chat-send').html('<iconify-icon icon="mdi:send" width="20" height="20"></iconify-icon>').attr('title', 'Kirim');
+        box.find('.wfn-cancel-edit-mode').remove();
+    }
+
+    // Send Message (New Note, Reply, or Edit)
     $(document).on('click', '.wfn-chat-send', function () {
         let box = $(this).closest('.wfn-chat-box');
         let input = box.find('.wfn-chat-input');
@@ -199,13 +202,40 @@ jQuery(document).ready(function ($) {
         let x = box.data('x');
         let y = box.data('y');
 
+        let editId = box.data('edit-id');
+        let editType = box.data('edit-type');
+
         if (!msg) return;
 
         let btn = $(this);
         btn.prop('disabled', true);
 
+        // --- EDIT MODE ---
+        if (editId && editType) {
+             $.post(wfn_ajax.url, {
+                action: 'wfn_edit_message',
+                nonce: wfn_ajax.nonce,
+                id: editId,
+                type: editType,
+                content: msg,
+                token: userToken
+            }, function(response) {
+                btn.prop('disabled', false);
+                if (response.success) {
+                    let msgElId = box.data('edit-el');
+                    if(msgElId) {
+                        $('#' + msgElId).find('.wfn-msg-content').text(msg);
+                    }
+                    resetEditMode(box);
+                } else {
+                    alert('Gagal menyimpan: ' + (response.data || 'Error'));
+                }
+            });
+            return;
+        }
+
+        // --- NEW/REPLY MODE ---
         if (postId) {
-            // Reply to existing note
             $.post(wfn_ajax.url, {
                 action: 'wfn_save_reply',
                 nonce: wfn_ajax.nonce,
@@ -215,29 +245,27 @@ jQuery(document).ready(function ($) {
             }, function(response) {
                 btn.prop('disabled', false);
                 if (response.success) {
-                    appendMessage(box, msg, response.data.author, response.data.is_admin);
+                    appendMessage(box, msg, response.data.author, response.data.is_admin, response.data.id, 'comment');
                     input.val('');
                 } else {
                     handleAuthError(response);
                 }
             });
         } else {
-            // Save New Note
             let postData = {
                 action: 'wfn_save_note',
                 nonce: wfn_ajax.nonce,
                 note: msg,
-                pos_x: x, // Legacy/Fallback
-                pos_y: y, // Legacy/Fallback
+                pos_x: x, 
+                pos_y: y, 
                 url: window.location.href,
                 token: userToken
             };
 
-            // If we have selector data, send it
             if (window.wfnCurrentPin) {
                 postData.selector = window.wfnCurrentPin.selector;
-                postData.pos_x = window.wfnCurrentPin.relX; // Overwrite with %
-                postData.pos_y = window.wfnCurrentPin.relY; // Overwrite with %
+                postData.pos_x = window.wfnCurrentPin.relX; 
+                postData.pos_y = window.wfnCurrentPin.relY; 
             }
 
             $.post(wfn_ajax.url, postData, function (response) {
@@ -248,7 +276,7 @@ jQuery(document).ready(function ($) {
                 if (response.success) {
                     box.data('post-id', response.data.id);
                     box.find('.wfn-chat-title').text('Revisi #' + response.data.id);
-                    appendMessage(box, msg, 'Anda', true); // Assume creator is "you"
+                    appendMessage(box, msg, 'Anda', true, response.data.id, 'post'); 
                     input.val('');
                     
                     if (tempPin && tempPin.selector) {
@@ -276,19 +304,66 @@ jQuery(document).ready(function ($) {
         }
     }
 
-    function appendMessage(box, msg, author, isAdmin) {
+    function appendMessage(box, msg, author, isAdmin, id = null, type = null) {
         let body = box.find('.wfn-chat-body');
         let msgClass = isAdmin ? 'wfn-msg-admin' : 'wfn-msg-client';
+        
+        let editBtn = '';
+        if (!isAdmin && id && !wfn_ajax.is_admin) {
+            // Edit button (Pencil)
+            editBtn = `<span class='wfn-edit-msg' data-id='${id}' data-type='${type}' title='Edit' style='cursor:pointer; margin-left:8px; font-size:16px; color:#999; display:inline-flex; align-items:center;'><iconify-icon icon="mdi:pencil" width="16" height="16"></iconify-icon></span>`;
+        }
+
         let html = `
-            <div class='wfn-chat-message ${msgClass}'>
-                <div class='wfn-msg-author'>${author}</div>
-                ${msg}
+            <div class='wfn-chat-message ${msgClass}' id='wfn-msg-${type}-${id}'>
+                <div class='wfn-msg-author' style='display:flex; align-items:center; justify-content:space-between;'>
+                    <span>${author}</span>
+                    ${editBtn}
+                </div>
+                <div class='wfn-msg-content' style='margin-top:2px;'>${msg}</div>
             </div>
             <div class='wfn-clearfix'></div>
         `;
-        body.append(html);
+        body.append(html); // Fixed: Remove duplicate
+        
+        // No Scan needed for <iconify-icon>
+        
         body.scrollTop(body[0].scrollHeight);
     }
+
+    // Edit Button Click
+    $(document).on('click', '.wfn-edit-msg', function(e) {
+        e.stopPropagation();
+        let btn = $(this);
+        let container = btn.closest('.wfn-chat-message');
+        let contentDiv = container.find('.wfn-msg-content');
+        let originalText = contentDiv.text(); 
+        
+        let box = btn.closest('.wfn-chat-box');
+        let input = box.find('.wfn-chat-input');
+        let sendBtn = box.find('.wfn-chat-send');
+        
+        input.val(originalText);
+        input.focus();
+        
+        let id = btn.data('id');
+        let type = btn.data('type');
+        box.data('edit-id', id);
+        box.data('edit-type', type);
+        box.data('edit-el', container.attr('id'));
+
+        // Change UI to Edit Mode
+        box.find('.wfn-chat-input').addClass('wfn-editing-mode').css('border-color', '#ffc107');
+        
+        // Check Icon
+        let sendBtnHtml = '<iconify-icon icon="mdi:check" width="20" height="20"></iconify-icon>';
+        sendBtn.html(sendBtnHtml).attr('title', 'Simpan Perubahan');
+        
+        // Close Icon
+        if (box.find('.wfn-cancel-edit-mode').length === 0) {
+             sendBtn.after(`<button class='wfn-cancel-edit-mode' style='background:#ccc; color:#333; border:none; width:38px; height:38px; border-radius:6px; cursor:pointer; margin-left:5px; font-size:14px; display:flex; align-items:center; justify-content:center;'><iconify-icon icon="mdi:close" width="20" height="20"></iconify-icon></button>`);
+        }
+    });
 
     function openChatBox(postId, x, y, messages, noteContent) {
         $('.wfn-chat-box').remove();
@@ -301,22 +376,22 @@ jQuery(document).ready(function ($) {
 
         let title = postId ? 'Revisi #' + postId : 'Revisi Baru';
 
-        // Logika Footer:
-        // Hapus fitur balasan (Reply). Input hanya muncul jika ini Catatan Baru (!postId).
-        // Jika catatan sudah ada, tidak ada input (View Only untuk semua).
         let footerHtml = '';
         
-        if (!postId) {
-            // Hanya tampilkan input untuk catatan BARU
+        if (!wfn_ajax.is_admin) {
+            // Paper Plane Icon for Send
             footerHtml = `
                 <div class='wfn-chat-footer'>
                     <input type='text' class='wfn-chat-input' placeholder='Tulis pesan...'>
-                    <button class='wfn-chat-send'>➤</button>
+                    <button class='wfn-chat-send'><iconify-icon icon="mdi:send" width="20" height="20"></iconify-icon></button>
                 </div>
             `;
         } else {
-             // Catatan lama = View Only (Tanpa footer)
-             footerHtml = '';
+             footerHtml = `
+                <div class='wfn-chat-footer' style='justify-content:center; color:#888; font-size:12px; font-style:italic;'>
+                    Mode Lihat Saja (Admin)
+                </div>
+            `;
         }
 
         let html = `
@@ -330,20 +405,20 @@ jQuery(document).ready(function ($) {
             </div>
         `;
         $('body').append(html);
-
+        
         let box = $('.wfn-chat-box');
-
+        
         if (noteContent) {
-            appendMessage(box, noteContent, 'Client', false);
+            appendMessage(box, noteContent, 'Client', false, postId, 'post');
         }
 
         if (messages && messages.length > 0) {
             messages.forEach(m => {
-                appendMessage(box, m.content, m.author, m.is_admin);
+                appendMessage(box, m.content, m.author, m.is_admin, m.id, 'comment');
             });
         }
 
-        if(!postId) {
+        if(!postId && !wfn_ajax.is_admin) {
             box.find('.wfn-chat-input').focus();
         }
     }
@@ -362,7 +437,6 @@ jQuery(document).ready(function ($) {
         $(this).closest('.wfn-comment-box').remove();
     });
 
-    // Remove old resize handler (no longer needed)
     $(window).off('resize.wfn'); 
 
     function loadPins() {
@@ -395,7 +469,6 @@ jQuery(document).ready(function ($) {
 
         if (selector && $(selector).length > 0) {
             let el = $(selector);
-            // Ensure relative positioning
             if (el.css('position') === 'static') {
                 el.css('position', 'relative');
             }
@@ -409,7 +482,6 @@ jQuery(document).ready(function ($) {
         } 
         
         if (!appended) {
-            // Legacy/Fallback
             if (!selector) {
                 $('body').append($pin);
                 $pin.css({

@@ -204,3 +204,16 @@ body.themify_builder_active #wfn-toggle-mode {
 .wfn-clearfix {
     clear: both;
 }
+
+/* Iconify Fixes */
+.wfn-chat-box iconify-icon {
+    vertical-align: middle;
+}
+
+.wfn-chat-send iconify-icon {
+    color: #fff;
+}
+
+.wfn-cancel-edit-mode iconify-icon {
+    color: #333;
+}
