@@ -395,9 +395,9 @@ jQuery(document).ready(function ($) {
         }
 
         let html = `
-            <div class='wfn-chat-box' data-post-id='${postId || ''}' data-x='${x}' data-y='${y}' style='top:${top}px; left:${left}px'>
+            <div class='wfn-chat-box ${wfn_ajax.is_admin ? "wfn-is-admin" : "wfn-is-client"}' data-post-id='${postId || ''}' data-x='${x}' data-y='${y}' style='top:${top}px; left:${left}px'>
                 <div class='wfn-chat-header'>
-                    <span class='wfn-chat-title'>${title}</span>
+       	            <span class='wfn-chat-title'>${title}</span>
                     <span class='wfn-chat-close'>&times;</span>
                 </div>
                 <div class='wfn-chat-body'></div>
