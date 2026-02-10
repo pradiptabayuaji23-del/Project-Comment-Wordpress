@@ -276,7 +276,7 @@ jQuery(document).ready(function ($) {
                 if (response.success) {
                     box.data('post-id', response.data.id);
                     box.find('.wfn-chat-title').text('Revisi #' + response.data.id);
-                    appendMessage(box, msg, 'Anda', true, response.data.id, 'post'); 
+                    appendMessage(box, msg, 'Anda', false, response.data.id, 'post'); 
                     input.val('');
                     
                     if (tempPin && tempPin.selector) {

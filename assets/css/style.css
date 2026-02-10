@@ -130,29 +130,36 @@ body.themify_builder_active #wfn-toggle-mode {
 
 /* Default (Client View): Admin = Left (Other), Client = Right (Me) */
 .wfn-msg-admin {
-    background: #1f2937;
-    color: #ffffff;
+    background: #ffffff;
+    color: #374151;
     float: left;
+    border: 1px solid #e5e7eb;
     border-bottom-left-radius: 2px;
 }
 
 .wfn-msg-client {
-    background: #ffffff;
-    color: #374151;
+    background: #2563eb;
+    color: #ffffff;
     float: right;
-    border: 1px solid #e5e7eb;
+    border: none;
     border-bottom-right-radius: 2px;
 }
 
 /* Admin View Overrides: Admin = Right (Me), Client = Left (Other) */
 .wfn-is-admin .wfn-msg-admin {
     float: right;
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
     border-bottom-left-radius: 8px; /* Restore default radius */
     border-bottom-right-radius: 2px;
 }
 
 .wfn-is-admin .wfn-msg-client {
     float: left;
+    background: #ffffff;
+    color: #374151;
+    border: 1px solid #e5e7eb;
     border-bottom-right-radius: 8px; /* Restore default radius */
     border-bottom-left-radius: 2px;
 }
