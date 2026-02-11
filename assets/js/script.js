@@ -307,6 +307,10 @@ jQuery(document).ready(function ($) {
     function appendMessage(box, msg, author, isAdmin, id = null, type = null) {
         let body = box.find('.wfn-chat-body');
         let msgClass = isAdmin ? 'wfn-msg-admin' : 'wfn-msg-client';
+
+        if (!wfn_ajax.is_admin && !isAdmin) {
+            author = 'Anda';
+        }
         
         let editBtn = '';
         if (!isAdmin && id && !wfn_ajax.is_admin) {
