@@ -238,3 +238,50 @@ body.themify_builder_active #wfn-toggle-mode {
 .wfn-cancel-edit-mode iconify-icon {
     color: #333;
 }
+
+/* File Upload Styles */
+.wfn-file-input-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.wfn-file-label {
+    cursor: pointer;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.wfn-file-label:hover {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+#wfn-file-preview {
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    padding: 8px 16px !important;
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+#wfn-remove-file {
+    margin-left: auto;
+    cursor: pointer;
+    color: #ef4444;
+    font-weight: bold;
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+#wfn-remove-file:hover {
+    background-color: #fee2e2;
+}

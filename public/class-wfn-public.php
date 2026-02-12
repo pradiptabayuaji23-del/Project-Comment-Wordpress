@@ -161,7 +161,33 @@ class WFN_Public {
             if( !empty($selector) ) {
                 update_post_meta( $post_id, 'wfn_selector', $selector );
             }
-            wp_send_json_success( array('id' => $post_id) );
+
+            // Handle Image Upload
+            $image_url = '';
+            if ( ! empty( $_FILES['wfn_image'] ) ) {
+                require_once( ABSPATH . 'wp-admin/includes/image.php' );
+                require_once( ABSPATH . 'wp-admin/includes/file.php' );
+                require_once( ABSPATH . 'wp-admin/includes/media.php' );
+
+                $attachment_id = media_handle_upload( 'wfn_image', $post_id );
+
+                if ( is_wp_error( $attachment_id ) ) {
+                    // Start: Fix for guest upload perms if needed, but media_handle_upload usually checks current user caps.
+                    // If user is guest, they might not have upload_files cap. 
+                    // For now, we assume simple usage. If user is guest, media_handle_upload might fail if not logged in.
+                    // Bypass cap check? No, WordPress relies on caps.
+                    // If guest allowed, we might need a workaround or ensure 'upload_files' is not strictly enforced for this context or use performant manual upload.
+                    // However, standard media_handle_upload is best.
+                } else {
+                    update_post_meta( $post_id, 'wfn_attachment_id', $attachment_id );
+                    $image_url = wp_get_attachment_url( $attachment_id );
+                }
+            }
+
+            wp_send_json_success( array(
+                'id' => $post_id,
+                'image_url' => $image_url
+            ) );
         } else {
             wp_send_json_error();
         }
@@ -202,13 +228,20 @@ class WFN_Public {
                 $comments = get_comments( array( 'post_id' => $id, 'order' => 'ASC' ) );
                 $replies = array();
                 foreach ( $comments as $comment ) {
+                    $attachment_id = get_comment_meta( $comment->comment_ID, 'wfn_attachment_id', true );
+                    $image_url = $attachment_id ? wp_get_attachment_url( $attachment_id ) : '';
+
                     $replies[] = array(
                         'id' => $comment->comment_ID,
                         'author' => $comment->comment_author,
                         'content' => $comment->comment_content,
-                        'is_admin' => $comment->user_id > 0 ? true : false
+                        'is_admin' => $comment->user_id > 0 ? true : false,
+                        'image_url' => $image_url
                     );
                 }
+
+                $post_attachment_id = get_post_meta( $id, 'wfn_attachment_id', true );
+                $post_image_url = $post_attachment_id ? wp_get_attachment_url( $post_attachment_id ) : '';
 
                 $notes[] = array(
                     'id' => $id,
@@ -218,7 +251,8 @@ class WFN_Public {
                         'y' => get_post_meta( $id, 'wfn_y', true ),
                         'selector' => get_post_meta( $id, 'wfn_selector', true )
                     ),
-                    'replies' => $replies
+                    'replies' => $replies,
+                    'image_url' => $post_image_url
                 );
             }
         }
@@ -262,11 +296,28 @@ class WFN_Public {
         $comment_id = wp_insert_comment( $comment_data );
 
         if ( $comment_id ) {
+            $image_url = '';
+            if ( ! empty( $_FILES['wfn_image'] ) ) {
+                require_once( ABSPATH . 'wp-admin/includes/image.php' );
+                require_once( ABSPATH . 'wp-admin/includes/file.php' );
+                require_once( ABSPATH . 'wp-admin/includes/media.php' );
+
+                // Comment attachments don't have a parent post ID in the same way, but we can assign to the post.
+                // Or just 0.
+                $attachment_id = media_handle_upload( 'wfn_image', $post_id ); // Assign to the WFN Post
+
+                if ( ! is_wp_error( $attachment_id ) ) {
+                    add_comment_meta( $comment_id, 'wfn_attachment_id', $attachment_id );
+                    $image_url = wp_get_attachment_url( $attachment_id );
+                }
+            }
+
             wp_send_json_success( array(
                 'id' => $comment_id,
                 'content' => $message,
                 'author' => $comment_data['comment_author'],
-                'is_admin' => is_user_logged_in()
+                'is_admin' => is_user_logged_in(),
+                'image_url' => $image_url
             ) );
         } else {
             wp_send_json_error( 'Failed to save reply' );

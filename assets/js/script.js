@@ -204,8 +204,11 @@ jQuery(document).ready(function ($) {
 
         let editId = box.data('edit-id');
         let editType = box.data('edit-type');
+        
+        let fileInput = box.find('#wfn-file-upload');
+        let file = fileInput.length ? fileInput[0].files[0] : null;
 
-        if (!msg) return;
+        if (!msg && !file) return;
 
         let btn = $(this);
         btn.prop('disabled', true);
@@ -234,58 +237,81 @@ jQuery(document).ready(function ($) {
             return;
         }
 
+        let formData = new FormData();
+        formData.append('nonce', wfn_ajax.nonce);
+        formData.append('token', userToken || '');
+        if (file) {
+            formData.append('wfn_image', file);
+        }
+
         // --- NEW/REPLY MODE ---
         if (postId) {
-            $.post(wfn_ajax.url, {
-                action: 'wfn_save_reply',
-                nonce: wfn_ajax.nonce,
-                post_id: postId,
-                message: msg,
-                token: userToken
-            }, function(response) {
-                btn.prop('disabled', false);
-                if (response.success) {
-                    appendMessage(box, msg, response.data.author, response.data.is_admin, response.data.id, 'comment');
-                    input.val('');
-                } else {
-                    handleAuthError(response);
+            formData.append('action', 'wfn_save_reply');
+            formData.append('post_id', postId);
+            formData.append('message', msg);
+
+            $.ajax({
+                url: wfn_ajax.url,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    btn.prop('disabled', false);
+                    if (response.success) {
+                        appendMessage(box, msg, response.data.author, response.data.is_admin, response.data.id, 'comment', response.data.image_url);
+                        input.val('');
+                        if(fileInput.length) {
+                             fileInput.val('');
+                             $('#wfn-file-preview').hide();
+                        }
+                    } else {
+                        handleAuthError(response);
+                    }
                 }
             });
         } else {
-            let postData = {
-                action: 'wfn_save_note',
-                nonce: wfn_ajax.nonce,
-                note: msg,
-                pos_x: x, 
-                pos_y: y, 
-                url: window.location.href,
-                token: userToken
-            };
+            formData.append('action', 'wfn_save_note');
+            formData.append('note', msg);
+            formData.append('pos_x', x);
+            formData.append('pos_y', y);
+            formData.append('url', window.location.href);
 
             if (window.wfnCurrentPin) {
-                postData.selector = window.wfnCurrentPin.selector;
-                postData.pos_x = window.wfnCurrentPin.relX; 
-                postData.pos_y = window.wfnCurrentPin.relY; 
+                formData.append('selector', window.wfnCurrentPin.selector);
+                formData.append('pos_x', window.wfnCurrentPin.relX);
+                formData.append('pos_y', window.wfnCurrentPin.relY);
             }
 
-            $.post(wfn_ajax.url, postData, function (response) {
-                let tempPin = window.wfnCurrentPin;
-                window.wfnCurrentPin = null; 
+             $.ajax({
+                url: wfn_ajax.url,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    let tempPin = window.wfnCurrentPin;
+                    window.wfnCurrentPin = null; 
 
-                btn.prop('disabled', false);
-                if (response.success) {
-                    box.data('post-id', response.data.id);
-                    box.find('.wfn-chat-title').text('Revisi #' + response.data.id);
-                    appendMessage(box, msg, 'Anda', false, response.data.id, 'post'); 
-                    input.val('');
-                    
-                    if (tempPin && tempPin.selector) {
-                        addPinToScreen(response.data.id, tempPin.relX, tempPin.relY, tempPin.selector, msg, []);
+                    btn.prop('disabled', false);
+                    if (response.success) {
+                        box.data('post-id', response.data.id);
+                        box.find('.wfn-chat-title').text('Revisi #' + response.data.id);
+                        appendMessage(box, msg, 'Anda', false, response.data.id, 'post', response.data.image_url); 
+                        input.val('');
+                        if(fileInput.length) {
+                             fileInput.val('');
+                             $('#wfn-file-preview').hide();
+                        }
+                        
+                        if (tempPin && tempPin.selector) {
+                            addPinToScreen(response.data.id, tempPin.relX, tempPin.relY, tempPin.selector, msg, [], response.data.image_url);
+                        } else {
+                             addPinToScreen(response.data.id, x, y, null, msg, [], response.data.image_url);
+                        }
                     } else {
-                         addPinToScreen(response.data.id, x, y, null, msg, []);
+                        handleAuthError(response);
                     }
-                } else {
-                    handleAuthError(response);
                 }
             });
         }
@@ -304,7 +330,7 @@ jQuery(document).ready(function ($) {
         }
     }
 
-    function appendMessage(box, msg, author, isAdmin, id = null, type = null) {
+    function appendMessage(box, msg, author, isAdmin, id = null, type = null, imageUrl = null) {
         let body = box.find('.wfn-chat-body');
         let msgClass = isAdmin ? 'wfn-msg-admin' : 'wfn-msg-client';
 
@@ -318,6 +344,11 @@ jQuery(document).ready(function ($) {
             editBtn = `<span class='wfn-edit-msg' data-id='${id}' data-type='${type}' title='Edit' style='cursor:pointer; margin-left:8px; font-size:16px; color:#999; display:inline-flex; align-items:center;'><iconify-icon icon="mdi:pencil" width="16" height="16"></iconify-icon></span>`;
         }
 
+        let imageHtml = '';
+        if (imageUrl) {
+            imageHtml = `<div style="margin-top:5px;"><a href="${imageUrl}" target="_blank"><img src="${imageUrl}" style="max-width:100%; border-radius:4px; max-height: 200px;"></a></div>`;
+        }
+
         let html = `
             <div class='wfn-chat-message ${msgClass}' id='wfn-msg-${type}-${id}'>
                 <div class='wfn-msg-author' style='display:flex; align-items:center; justify-content:space-between;'>
@@ -325,6 +356,7 @@ jQuery(document).ready(function ($) {
                     ${editBtn}
                 </div>
                 <div class='wfn-msg-content' style='margin-top:2px;'>${msg}</div>
+                ${imageHtml}
             </div>
             <div class='wfn-clearfix'></div>
         `;
@@ -369,7 +401,7 @@ jQuery(document).ready(function ($) {
         }
     });
 
-    function openChatBox(postId, x, y, messages, noteContent) {
+    function openChatBox(postId, x, y, messages, noteContent, noteImage) {
         $('.wfn-chat-box').remove();
 
         let left = Math.min(x + 30, window.innerWidth - 350);
@@ -386,8 +418,17 @@ jQuery(document).ready(function ($) {
             // Paper Plane Icon for Send
             footerHtml = `
                 <div class='wfn-chat-footer'>
+                   <div class="wfn-file-input-wrapper">
+                        <label for="wfn-file-upload" class="wfn-file-label">
+                            <iconify-icon icon="mdi:paperclip" width="20" height="20"></iconify-icon>
+                        </label>
+                        <input type="file" id="wfn-file-upload" class="wfn-file-input" accept="image/*" style="display:none;">
+                    </div>
                     <input type='text' class='wfn-chat-input' placeholder='Tulis pesan...'>
                     <button class='wfn-chat-send'><iconify-icon icon="mdi:send" width="20" height="20"></iconify-icon></button>
+                </div>
+                 <div id="wfn-file-preview" style="display:none; padding: 5px 10px; font-size: 12px; color: #666; border-top: 1px solid #eee;">
+                    <span id="wfn-filename"></span> <span id="wfn-remove-file" style="cursor:pointer; color:red; margin-left:5px;">&times;</span>
                 </div>
             `;
         } else {
@@ -413,18 +454,33 @@ jQuery(document).ready(function ($) {
         let box = $('.wfn-chat-box');
         
         if (noteContent) {
-            appendMessage(box, noteContent, 'Client', false, postId, 'post');
+            appendMessage(box, noteContent, 'Client', false, postId, 'post', noteImage);
         }
 
         if (messages && messages.length > 0) {
             messages.forEach(m => {
-                appendMessage(box, m.content, m.author, m.is_admin, m.id, 'comment');
+                appendMessage(box, m.content, m.author, m.is_admin, m.id, 'comment', m.image_url);
             });
         }
 
         if(!postId && !wfn_ajax.is_admin) {
             box.find('.wfn-chat-input').focus();
         }
+
+        // File Input Change Handler
+        $('#wfn-file-upload').on('change', function() {
+            let file = this.files[0];
+            if (file) {
+                $('#wfn-filename').text(file.name);
+                $('#wfn-file-preview').show();
+            }
+        });
+
+        // Remove File Handler
+        $('#wfn-remove-file').on('click', function() {
+            $('#wfn-file-upload').val('');
+            $('#wfn-file-preview').hide();
+        });
     }
 
     $(document).on('click', '.wfn-chat-close', function () {
@@ -455,7 +511,7 @@ jQuery(document).ready(function ($) {
                 $('.wfn-pin').remove();
                 
                 response.data.forEach(function (pin) {
-                    addPinToScreen(pin.id, pin.meta.x, pin.meta.y, pin.meta.selector, pin.content, pin.replies);
+                    addPinToScreen(pin.id, pin.meta.x, pin.meta.y, pin.meta.selector, pin.content, pin.replies, pin.image_url);
                 });
             } else {
                 if (response.data === 'Unauthorized') {
@@ -466,7 +522,7 @@ jQuery(document).ready(function ($) {
         });
     }
 
-    function addPinToScreen(id, x, y, selector, content, replies) {
+    function addPinToScreen(id, x, y, selector, content, replies, imageUrl) {
         let pin = `<div class='wfn-pin' data-id='${id}' data-selector='${selector || ''}'><span>!</span></div>`;
         let $pin = $(pin);
         let appended = false;
@@ -500,14 +556,16 @@ jQuery(document).ready(function ($) {
 
         $pin.data('content', content);
         $pin.data('replies', replies || []);
+        $pin.data('image-url', imageUrl || null);
 
         $pin.on('click', function (e) {
             e.stopPropagation();
             e.preventDefault();
             let noteContent = $(this).data('content');
             let noteReplies = $(this).data('replies');
+            let noteImage = $(this).data('image-url');
             let rect = this.getBoundingClientRect();
-            openChatBox(id, rect.left, rect.top, noteReplies, noteContent);
+            openChatBox(id, rect.left, rect.top, noteReplies, noteContent, noteImage);
         });
     }
 });
