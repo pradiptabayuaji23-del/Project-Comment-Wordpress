@@ -265,6 +265,20 @@ jQuery(document).ready(function ($) {
                              fileInput.val('');
                              $('#wfn-file-preview').hide();
                         }
+                        
+                         // BUG FIX: Update PIN data so it persists without refresh
+                        let pin = $(`.wfn-pin[data-id="${postId}"]`);
+                        if (pin.length) {
+                            let replies = pin.data('replies') || [];
+                            replies.push({
+                                id: response.data.id,
+                                author: response.data.author,
+                                content: msg,
+                                is_admin: response.data.is_admin,
+                                image_url: response.data.image_url
+                            });
+                            pin.data('replies', replies);
+                        }
                     } else {
                         handleAuthError(response);
                     }
