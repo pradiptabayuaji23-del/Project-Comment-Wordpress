@@ -92,10 +92,10 @@ jQuery(document).ready(function ($) {
                 localStorage.setItem('wfn_client_token', JSON.stringify({ token: userToken, expiry: expiry }));
                 
                 $('#wfn-token-modal').remove();
-                alert('Token valid! Silakan aktifkan mode komentar.');
+                showWfnAlert({ type: 'success', title: 'Token Valid!', message: 'Silakan aktifkan mode komentar.' });
                 loadPins(); 
             } else {
-                alert('Token salah!');
+                showWfnAlert({ type: 'error', title: 'Token Salah', message: 'Token yang Anda masukan tidak valid.' });
                 $('#wfn-submit-token').text('Masuk');
             }
         });
@@ -135,7 +135,7 @@ jQuery(document).ready(function ($) {
 
     $(document).on('click', '#wfn-canvas-overlay', function (e) {
         if (wfn_ajax.is_admin) {
-            alert('Admin hanya bisa melihat catatan, tidak bisa membuat baru.');
+            showWfnAlert({ type: 'info', title: 'Mode Admin', message: 'Admin hanya bisa melihat catatan, tidak bisa membuat baru.' });
             return;
         }
 
@@ -231,7 +231,7 @@ jQuery(document).ready(function ($) {
                     }
                     resetEditMode(box);
                 } else {
-                    alert('Gagal menyimpan: ' + (response.data || 'Error'));
+                    showWfnAlert({ type: 'error', title: 'Gagal Menyimpan', message: response.data || 'Error' });
                 }
             });
             return;
@@ -331,24 +331,95 @@ jQuery(document).ready(function ($) {
         }
     });
 
+    // ========== Custom Alert Modal ==========
+    function showWfnAlert(options) {
+        // options: { type, title, message, limit, used }
+        $('.wfn-alert-overlay').remove();
+
+        let iconMap = {
+            warning: '<iconify-icon icon="mdi:alert-outline" width="24" height="24"></iconify-icon>',
+            error:   '<iconify-icon icon="mdi:close-circle" width="28" height="28"></iconify-icon>',
+            success: '<iconify-icon icon="mdi:check-circle" width="28" height="28"></iconify-icon>',
+            info:    '<iconify-icon icon="mdi:information" width="28" height="28"></iconify-icon>'
+        };
+        let type = options.type || 'info';
+        let icon = iconMap[type] || iconMap.info;
+
+        let progressHtml = '';
+        if (options.limit && options.used !== undefined) {
+            let pct = Math.min((options.used / options.limit) * 100, 100);
+            progressHtml = `
+                <div class="wfn-alert-progress">
+                    <div class="wfn-alert-progress-bar" style="width:0%;" data-target="${pct}"></div>
+                </div>
+                <div class="wfn-alert-progress-label">${options.used} / ${options.limit} komentar terpakai hari ini</div>
+            `;
+        }
+
+        let html = `
+            <div class="wfn-alert-overlay">
+                <div class="wfn-alert-box">
+                    <div class="wfn-alert-icon wfn-icon-${type}">${icon}</div>
+                    <div class="wfn-alert-title">${options.title || 'Pemberitahuan'}</div>
+                    <div class="wfn-alert-message">${options.message || ''}</div>
+                    ${progressHtml}
+                    <button class="wfn-alert-btn wfn-alert-btn-primary wfn-alert-close">Mengerti</button>
+                </div>
+            </div>
+        `;
+        $('body').append(html);
+
+        // Animate progress bar
+        setTimeout(function() {
+            let bar = $('.wfn-alert-progress-bar');
+            if (bar.length) {
+                bar.css('width', bar.data('target') + '%');
+            }
+        }, 100);
+    }
+
+    // Close alert
+    $(document).on('click', '.wfn-alert-close, .wfn-alert-overlay', function(e) {
+        if (e.target === this) {
+            let overlay = $(this).closest('.wfn-alert-overlay');
+            if (!overlay.length) overlay = $(this);
+            overlay.css('animation', 'wfn-fade-in 0.15s ease reverse');
+            setTimeout(function() { overlay.remove(); }, 150);
+        }
+    });
+
     function handleAuthError(response) {
         let errorData = response.data || 'Error';
 
         // Handle daily limit error
         if (typeof errorData === 'object' && errorData.code === 'daily_limit') {
-            alert(errorData.message);
+            showWfnAlert({
+                type: 'warning',
+                title: 'Batas Harian Tercapai',
+                message: errorData.message,
+                limit: errorData.limit,
+                used: errorData.used
+            });
             return;
         }
 
         let errorMsg = (typeof errorData === 'object' && errorData.message) ? errorData.message : errorData;
         if (typeof errorMsg === 'string' && errorMsg.indexOf('Unauthorized') !== -1) {
-            alert('Token tidak valid atau telah berubah. Silakan masukan token baru.');
+            showWfnAlert({
+                type: 'error',
+                title: 'Token Tidak Valid',
+                message: 'Token tidak valid atau telah berubah. Silakan masukan token baru.'
+            });
             localStorage.removeItem('wfn_client_token');
             userToken = null;
             $('.wfn-chat-box').remove();
             promptForToken();
         } else {
-            alert('Gagal: ' + errorMsg);
+            showWfnAlert({
+                type: 'error',
+                title: 'Gagal',
+                message: errorMsg
+            });
         }
     }
 
