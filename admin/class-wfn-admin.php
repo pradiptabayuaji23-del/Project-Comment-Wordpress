@@ -21,6 +21,11 @@ class WFN_Admin {
 
     public function register_settings() {
         register_setting( 'wfn_options_group', 'wfn_feedback_token' );
+        register_setting( 'wfn_options_group', 'wfn_daily_limit', array(
+            'type' => 'integer',
+            'default' => 5,
+            'sanitize_callback' => 'absint'
+        ));
     }
 
     public function render_settings_page() {
@@ -47,6 +52,13 @@ class WFN_Admin {
                                 document.getElementById('wfn_token_input').value = token;
                             }
                             </script>
+                        </td>
+                    </tr>
+                    <tr valign="top">
+                        <th scope="row">Batas Komentar Per Hari</th>
+                        <td>
+                            <input type="number" name="wfn_daily_limit" value="<?php echo esc_attr( get_option('wfn_daily_limit', 5) ); ?>" min="1" max="100" style="width: 80px;" />
+                            <p class="description">Jumlah maksimal komentar (note + reply) yang bisa dibuat client per hari. Admin tidak dibatasi.</p>
                         </td>
                     </tr>
                 </table>

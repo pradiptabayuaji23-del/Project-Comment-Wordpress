@@ -332,7 +332,15 @@ jQuery(document).ready(function ($) {
     });
 
     function handleAuthError(response) {
-        let errorMsg = response.data || 'Error';
+        let errorData = response.data || 'Error';
+
+        // Handle daily limit error
+        if (typeof errorData === 'object' && errorData.code === 'daily_limit') {
+            alert(errorData.message);
+            return;
+        }
+
+        let errorMsg = (typeof errorData === 'object' && errorData.message) ? errorData.message : errorData;
         if (typeof errorMsg === 'string' && errorMsg.indexOf('Unauthorized') !== -1) {
             alert('Token tidak valid atau telah berubah. Silakan masukan token baru.');
             localStorage.removeItem('wfn_client_token');

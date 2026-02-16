@@ -141,6 +141,9 @@ class WFN_Public {
             }
         }
 
+        // Check daily limit (admin exempt)
+        $this->check_daily_limit();
+
         $note = sanitize_textarea_field( $_POST['note'] );
         $x = sanitize_text_field( $_POST['pos_x'] );
         $y = sanitize_text_field( $_POST['pos_y'] );
@@ -158,6 +161,7 @@ class WFN_Public {
             update_post_meta( $post_id, 'wfn_x', $x );
             update_post_meta( $post_id, 'wfn_y', $y );
             update_post_meta( $post_id, 'wfn_url', $url );
+            update_post_meta( $post_id, 'wfn_author_ip', $_SERVER['REMOTE_ADDR'] );
             if( !empty($selector) ) {
                 update_post_meta( $post_id, 'wfn_selector', $selector );
             }
@@ -277,6 +281,9 @@ class WFN_Public {
             }
         }
 
+        // Check daily limit (admin exempt)
+        $this->check_daily_limit();
+
         $post_id = intval( $_POST['post_id'] );
         $message = sanitize_textarea_field( $_POST['message'] );
 
@@ -321,6 +328,54 @@ class WFN_Public {
             ) );
         } else {
             wp_send_json_error( 'Failed to save reply' );
+        }
+    }
+
+    /**
+     * Check daily comment limit for non-admin users.
+     * Counts notes (posts) and replies (comments) created today by the visitor's IP.
+     */
+    private function check_daily_limit() {
+        if ( is_user_logged_in() ) return; // Admin exempt
+
+        $limit = intval( get_option( 'wfn_daily_limit', 5 ) );
+        if ( $limit <= 0 ) $limit = 5;
+
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $today = date( 'Y-m-d' );
+
+        // Count notes (wfn_note posts) created today by this IP
+        global $wpdb;
+        $note_count = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->posts} p
+             INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = 'wfn_author_ip'
+             WHERE p.post_type = 'wfn_note'
+             AND p.post_status = 'publish'
+             AND DATE(p.post_date) = %s
+             AND pm.meta_value = %s",
+            $today, $ip
+        ));
+
+        // Count replies (comments) created today by this IP
+        $reply_count = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->comments}
+             WHERE comment_type = 'wfn_reply'
+             AND comment_author_IP = %s
+             AND DATE(comment_date) = %s",
+            $ip, $today
+        ));
+
+        $total = $note_count + $reply_count;
+
+        if ( $total >= $limit ) {
+            $remaining = 0;
+            wp_send_json_error( array(
+                'code' => 'daily_limit',
+                'message' => 'Anda telah mencapai batas ' . $limit . ' komentar per hari. Silakan coba lagi besok.',
+                'limit' => $limit,
+                'used' => $total,
+                'remaining' => $remaining
+            ));
         }
     }
 }
