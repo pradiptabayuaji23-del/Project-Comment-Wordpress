@@ -337,7 +337,7 @@ jQuery(document).ready(function ($) {
         $('.wfn-alert-overlay').remove();
 
         let iconMap = {
-            warning: '<iconify-icon icon="mdi:alert-outline" width="24" height="24"></iconify-icon>',
+            warning: '<iconify-icon icon="mdi:alert-outline" width="28" height="28"></iconify-icon>',
             error:   '<iconify-icon icon="mdi:close-circle" width="28" height="28"></iconify-icon>',
             success: '<iconify-icon icon="mdi:check-circle" width="28" height="28"></iconify-icon>',
             info:    '<iconify-icon icon="mdi:information" width="28" height="28"></iconify-icon>'

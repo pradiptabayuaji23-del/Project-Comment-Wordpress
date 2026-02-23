@@ -55,10 +55,10 @@ class WFN_Admin {
                         </td>
                     </tr>
                     <tr valign="top">
-                        <th scope="row">Batas Komentar Per Hari</th>
+                        <th scope="row">Daily Comment Limit</th>
                         <td>
                             <input type="number" name="wfn_daily_limit" value="<?php echo esc_attr( get_option('wfn_daily_limit', 5) ); ?>" min="1" max="100" style="width: 80px;" />
-                            <p class="description">Jumlah maksimal komentar (note + reply) yang bisa dibuat client per hari. Admin tidak dibatasi.</p>
+                            <p class="description">The maximum number of comments (notes + replies) a client can make per day. Admins are not limited.</p>
                         </td>
                     </tr>
                 </table>
