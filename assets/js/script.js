@@ -3,8 +3,8 @@ jQuery(document).ready(function ($) {
     if ($('body').hasClass('themify_builder_active')) return;
 
     let userToken = null;
-    let tokenData = localStorage.getItem('wfn_client_token'); 
-    
+    let tokenData = localStorage.getItem('wfn_client_token');
+
     if (tokenData) {
         try {
             let parsed = JSON.parse(tokenData);
@@ -14,7 +14,7 @@ jQuery(document).ready(function ($) {
                 localStorage.removeItem('wfn_client_token');
                 console.log('Token expired');
             }
-        } catch(e) {
+        } catch (e) {
             localStorage.removeItem('wfn_client_token');
         }
     }
@@ -58,45 +58,67 @@ jQuery(document).ready(function ($) {
 
     function promptForToken() {
         let tokenHtml = `
-            <div id='wfn-token-modal' style='position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:99999999; display:flex; justify-content:center; align-items:center;'>
-                <div style='background:#fff; padding:20px; border-radius:8px; text-align:center; width:300px;'>
-                    <h3>Masukan Token Akses</h3>
-                    <p>Admin mewajibkan token untuk memberi komentar.</p>
-                    <input type='text' id='wfn-token-input' placeholder='Masukan Token...' style='width:100%; padding:8px; margin-bottom:10px; border:1px solid #ddd; border-radius:4px;'>
-                    <button id='wfn-submit-token' style='background:#E91E63; color:#fff; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;'>Masuk</button>
-                    <button id='wfn-cancel-token' style='background:#eee; color:#333; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; margin-left:5px;'>Batal</button>
+            <div id='wfn-token-modal' class='wfn-token-overlay'>
+                <div class='wfn-token-box'>
+                    <div class='wfn-token-icon'>
+                        <iconify-icon icon="mdi:shield-lock" width="28" height="28"></iconify-icon>
+                    </div>
+                    <div class='wfn-token-title'>Masukan Token Akses</div>
+                    <div class='wfn-token-desc'>Admin mewajibkan token untuk memberi komentar.</div>
+                    <input type='text' id='wfn-token-input' class='wfn-token-input' placeholder='Masukan token di sini...' autocomplete='off' spellcheck='false'>
+                    <div class='wfn-token-actions'>
+                        <button id='wfn-cancel-token' class='wfn-token-btn wfn-token-btn-secondary'>Batal</button>
+                        <button id='wfn-submit-token' class='wfn-token-btn wfn-token-btn-primary'>
+                            <iconify-icon icon="mdi:login" width="16" height="16"></iconify-icon>
+                            Masuk
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
         $('body').append(tokenHtml);
+        setTimeout(() => $('#wfn-token-input').focus(), 100);
     }
 
-    $(document).on('click', '#wfn-cancel-token', function() {
-        $('#wfn-token-modal').remove();
+    $(document).on('click', '#wfn-cancel-token', function () {
+        let overlay = $('#wfn-token-modal');
+        overlay.css('animation', 'wfn-fade-in 0.15s ease reverse');
+        overlay.find('.wfn-token-box').css('animation', 'wfn-slide-up 0.15s ease reverse');
+        setTimeout(function () { overlay.remove(); }, 150);
     });
 
-    $(document).on('click', '#wfn-submit-token', function() {
-        let input = $('#wfn-token-input').val();
-        if (!input) return;
+    $(document).on('keypress', '#wfn-token-input', function (e) {
+        if (e.which === 13) {
+            $('#wfn-submit-token').click();
+        }
+    });
 
-        $(this).text('Verifikasi...');
-        
+    $(document).on('click', '#wfn-submit-token', function () {
+        let input = $('#wfn-token-input').val();
+        if (!input) {
+            $('#wfn-token-input').addClass('wfn-token-input-error');
+            setTimeout(() => $('#wfn-token-input').removeClass('wfn-token-input-error'), 600);
+            return;
+        }
+
+        $(this).html('<iconify-icon icon="mdi:loading" width="16" height="16" class="wfn-spin"></iconify-icon> Verifikasi...').prop('disabled', true);
+
         $.post(wfn_ajax.url, {
             action: 'wfn_verify_token',
             nonce: wfn_ajax.nonce,
             token: input
-        }, function(response) {
+        }, function (response) {
             if (response.success) {
                 userToken = input;
-                let expiry = Date.now() + (24 * 60 * 60 * 1000); 
+                let expiry = Date.now() + (24 * 60 * 60 * 1000);
                 localStorage.setItem('wfn_client_token', JSON.stringify({ token: userToken, expiry: expiry }));
-                
+
                 $('#wfn-token-modal').remove();
                 showWfnAlert({ type: 'success', title: 'Token Valid!', message: 'Silakan aktifkan mode komentar.' });
-                loadPins(); 
+                loadPins();
             } else {
                 showWfnAlert({ type: 'error', title: 'Token Salah', message: 'Token yang Anda masukan tidak valid.' });
-                $('#wfn-submit-token').text('Masuk');
+                $('#wfn-submit-token').html('<iconify-icon icon="mdi:login" width="16" height="16"></iconify-icon> Masuk').prop('disabled', false);
             }
         });
     });
@@ -122,11 +144,11 @@ jQuery(document).ready(function ($) {
         }
         return path.join(' > ');
     }
-    
+
     function getSafeAnchor(el) {
         const voidTags = ['img', 'input', 'br', 'hr', 'embed', 'source', 'track', 'wbr', 'area', 'col'];
         const tag = el.tagName.toLowerCase();
-        
+
         if (voidTags.includes(tag) || el instanceof SVGElement) {
             return el.parentElement || document.body;
         }
@@ -146,7 +168,7 @@ jQuery(document).ready(function ($) {
         if (!rawTarget || rawTarget === document.body || rawTarget === document.documentElement) {
             rawTarget = document.body;
         }
-        
+
         let targetEl = getSafeAnchor(rawTarget);
 
         if ($(e.target).closest('.wfn-pin, .wfn-chat-box, #wfn-toggle-mode').length) return;
@@ -156,7 +178,7 @@ jQuery(document).ready(function ($) {
         let rect = targetEl.getBoundingClientRect();
         let relX = (e.clientX - rect.left) / rect.width * 100;
         let relY = (e.clientY - rect.top) / rect.height * 100;
-        
+
         relX = Math.max(0, Math.min(100, relX));
         relY = Math.max(0, Math.min(100, relY));
 
@@ -166,15 +188,15 @@ jQuery(document).ready(function ($) {
             selector: selector,
             relX: relX,
             relY: relY,
-            absX: e.pageX, 
-            absY: e.pageY 
+            absX: e.pageX,
+            absY: e.pageY
         };
 
-        openChatBox(null, e.pageX, e.pageY, [], null); 
+        openChatBox(null, e.pageX, e.pageY, [], null);
     });
 
     // Cancel Edit Mode (Footer)
-    $(document).on('click', '.wfn-cancel-edit-mode', function() {
+    $(document).on('click', '.wfn-cancel-edit-mode', function () {
         let box = $(this).closest('.wfn-chat-box');
         resetEditMode(box);
     });
@@ -183,11 +205,11 @@ jQuery(document).ready(function ($) {
         box.data('edit-id', null);
         box.data('edit-type', null);
         box.data('edit-el', null);
-        
+
         let input = box.find('.wfn-chat-input');
         input.val('');
         input.removeClass('wfn-editing-mode').css('border-color', '');
-        
+
         // Reset Send Button Icon (Paper Plane)
         box.find('.wfn-chat-send').html('<iconify-icon icon="mdi:send" width="20" height="20"></iconify-icon>').attr('title', 'Kirim');
         box.find('.wfn-cancel-edit-mode').remove();
@@ -204,7 +226,7 @@ jQuery(document).ready(function ($) {
 
         let editId = box.data('edit-id');
         let editType = box.data('edit-type');
-        
+
         let fileInput = box.find('#wfn-file-upload');
         let file = fileInput.length ? fileInput[0].files[0] : null;
 
@@ -215,18 +237,18 @@ jQuery(document).ready(function ($) {
 
         // --- EDIT MODE ---
         if (editId && editType) {
-             $.post(wfn_ajax.url, {
+            $.post(wfn_ajax.url, {
                 action: 'wfn_edit_message',
                 nonce: wfn_ajax.nonce,
                 id: editId,
                 type: editType,
                 content: msg,
                 token: userToken
-            }, function(response) {
+            }, function (response) {
                 btn.prop('disabled', false);
                 if (response.success) {
                     let msgElId = box.data('edit-el');
-                    if(msgElId) {
+                    if (msgElId) {
                         $('#' + msgElId).find('.wfn-msg-content').text(msg);
                     }
                     resetEditMode(box);
@@ -256,17 +278,17 @@ jQuery(document).ready(function ($) {
                 data: formData,
                 processData: false,
                 contentType: false,
-                success: function(response) {
+                success: function (response) {
                     btn.prop('disabled', false);
                     if (response.success) {
                         appendMessage(box, msg, response.data.author, response.data.is_admin, response.data.id, 'comment', response.data.image_url);
                         input.val('');
-                        if(fileInput.length) {
-                             fileInput.val('');
-                             $('#wfn-file-preview').hide();
+                        if (fileInput.length) {
+                            fileInput.val('');
+                            $('#wfn-file-preview').hide();
                         }
-                        
-                         // BUG FIX: Update PIN data so it persists without refresh
+
+                        // BUG FIX: Update PIN data so it persists without refresh
                         let pin = $(`.wfn-pin[data-id="${postId}"]`);
                         if (pin.length) {
                             let replies = pin.data('replies') || [];
@@ -297,31 +319,31 @@ jQuery(document).ready(function ($) {
                 formData.append('pos_y', window.wfnCurrentPin.relY);
             }
 
-             $.ajax({
+            $.ajax({
                 url: wfn_ajax.url,
                 type: 'POST',
                 data: formData,
                 processData: false,
                 contentType: false,
-                success: function(response) {
+                success: function (response) {
                     let tempPin = window.wfnCurrentPin;
-                    window.wfnCurrentPin = null; 
+                    window.wfnCurrentPin = null;
 
                     btn.prop('disabled', false);
                     if (response.success) {
                         box.data('post-id', response.data.id);
                         box.find('.wfn-chat-title').text('Revisi #' + response.data.id);
-                        appendMessage(box, msg, 'Anda', false, response.data.id, 'post', response.data.image_url); 
+                        appendMessage(box, msg, 'Anda', false, response.data.id, 'post', response.data.image_url);
                         input.val('');
-                        if(fileInput.length) {
-                             fileInput.val('');
-                             $('#wfn-file-preview').hide();
+                        if (fileInput.length) {
+                            fileInput.val('');
+                            $('#wfn-file-preview').hide();
                         }
-                        
+
                         if (tempPin && tempPin.selector) {
                             addPinToScreen(response.data.id, tempPin.relX, tempPin.relY, tempPin.selector, msg, [], response.data.image_url);
                         } else {
-                             addPinToScreen(response.data.id, x, y, null, msg, [], response.data.image_url);
+                            addPinToScreen(response.data.id, x, y, null, msg, [], response.data.image_url);
                         }
                     } else {
                         handleAuthError(response);
@@ -338,9 +360,9 @@ jQuery(document).ready(function ($) {
 
         let iconMap = {
             warning: '<iconify-icon icon="mdi:alert-outline" width="28" height="28"></iconify-icon>',
-            error:   '<iconify-icon icon="mdi:close-circle" width="28" height="28"></iconify-icon>',
+            error: '<iconify-icon icon="mdi:close-circle" width="28" height="28"></iconify-icon>',
             success: '<iconify-icon icon="mdi:check-circle" width="28" height="28"></iconify-icon>',
-            info:    '<iconify-icon icon="mdi:information" width="28" height="28"></iconify-icon>'
+            info: '<iconify-icon icon="mdi:information" width="28" height="28"></iconify-icon>'
         };
         let type = options.type || 'info';
         let icon = iconMap[type] || iconMap.info;
@@ -370,7 +392,7 @@ jQuery(document).ready(function ($) {
         $('body').append(html);
 
         // Animate progress bar
-        setTimeout(function() {
+        setTimeout(function () {
             let bar = $('.wfn-alert-progress-bar');
             if (bar.length) {
                 bar.css('width', bar.data('target') + '%');
@@ -379,12 +401,12 @@ jQuery(document).ready(function ($) {
     }
 
     // Close alert
-    $(document).on('click', '.wfn-alert-close, .wfn-alert-overlay', function(e) {
+    $(document).on('click', '.wfn-alert-close, .wfn-alert-overlay', function (e) {
         if (e.target === this) {
             let overlay = $(this).closest('.wfn-alert-overlay');
             if (!overlay.length) overlay = $(this);
             overlay.css('animation', 'wfn-fade-in 0.15s ease reverse');
-            setTimeout(function() { overlay.remove(); }, 150);
+            setTimeout(function () { overlay.remove(); }, 150);
         }
     });
 
@@ -430,7 +452,7 @@ jQuery(document).ready(function ($) {
         if (!wfn_ajax.is_admin && !isAdmin) {
             author = 'Anda';
         }
-        
+
         let editBtn = '';
         if (!isAdmin && id && !wfn_ajax.is_admin) {
             // Edit button (Pencil)
@@ -454,27 +476,27 @@ jQuery(document).ready(function ($) {
             <div class='wfn-clearfix'></div>
         `;
         body.append(html); // Fixed: Remove duplicate
-        
+
         // No Scan needed for <iconify-icon>
-        
+
         body.scrollTop(body[0].scrollHeight);
     }
 
     // Edit Button Click
-    $(document).on('click', '.wfn-edit-msg', function(e) {
+    $(document).on('click', '.wfn-edit-msg', function (e) {
         e.stopPropagation();
         let btn = $(this);
         let container = btn.closest('.wfn-chat-message');
         let contentDiv = container.find('.wfn-msg-content');
-        let originalText = contentDiv.text(); 
-        
+        let originalText = contentDiv.text();
+
         let box = btn.closest('.wfn-chat-box');
         let input = box.find('.wfn-chat-input');
         let sendBtn = box.find('.wfn-chat-send');
-        
+
         input.val(originalText);
         input.focus();
-        
+
         let id = btn.data('id');
         let type = btn.data('type');
         box.data('edit-id', id);
@@ -483,14 +505,14 @@ jQuery(document).ready(function ($) {
 
         // Change UI to Edit Mode
         box.find('.wfn-chat-input').addClass('wfn-editing-mode').css('border-color', '#ffc107');
-        
+
         // Check Icon
         let sendBtnHtml = '<iconify-icon icon="mdi:check" width="20" height="20"></iconify-icon>';
         sendBtn.html(sendBtnHtml).attr('title', 'Simpan Perubahan');
-        
+
         // Close Icon
         if (box.find('.wfn-cancel-edit-mode').length === 0) {
-             sendBtn.after(`<button class='wfn-cancel-edit-mode' style='background:#ccc; color:#333; border:none; width:38px; height:38px; border-radius:6px; cursor:pointer; margin-left:5px; font-size:14px; display:flex; align-items:center; justify-content:center;'><iconify-icon icon="mdi:close" width="20" height="20"></iconify-icon></button>`);
+            sendBtn.after(`<button class='wfn-cancel-edit-mode' style='background:#ccc; color:#333; border:none; width:38px; height:38px; border-radius:6px; cursor:pointer; margin-left:5px; font-size:14px; display:flex; align-items:center; justify-content:center;'><iconify-icon icon="mdi:close" width="20" height="20"></iconify-icon></button>`);
         }
     });
 
@@ -499,14 +521,14 @@ jQuery(document).ready(function ($) {
 
         let left = Math.min(x + 30, window.innerWidth - 350);
         let top = Math.min(y, window.innerHeight - 480);
-        
+
         left = Math.max(10, left);
         top = Math.max(10, top);
 
         let title = postId ? 'Revisi #' + postId : 'Revisi Baru';
 
         let footerHtml = '';
-        
+
         if (!wfn_ajax.is_admin) {
             // Paper Plane Icon for Send
             footerHtml = `
@@ -525,7 +547,7 @@ jQuery(document).ready(function ($) {
                 </div>
             `;
         } else {
-             footerHtml = `
+            footerHtml = `
                 <div class='wfn-chat-footer' style='justify-content:center; color:#888; font-size:12px; font-style:italic;'>
                     Mode Lihat Saja (Admin)
                 </div>
@@ -543,9 +565,9 @@ jQuery(document).ready(function ($) {
             </div>
         `;
         $('body').append(html);
-        
+
         let box = $('.wfn-chat-box');
-        
+
         if (noteContent) {
             appendMessage(box, noteContent, 'Client', false, postId, 'post', noteImage);
         }
@@ -556,12 +578,12 @@ jQuery(document).ready(function ($) {
             });
         }
 
-        if(!postId && !wfn_ajax.is_admin) {
+        if (!postId && !wfn_ajax.is_admin) {
             box.find('.wfn-chat-input').focus();
         }
 
         // File Input Change Handler
-        $('#wfn-file-upload').on('change', function() {
+        $('#wfn-file-upload').on('change', function () {
             let file = this.files[0];
             if (file) {
                 $('#wfn-filename').text(file.name);
@@ -570,7 +592,7 @@ jQuery(document).ready(function ($) {
         });
 
         // Remove File Handler
-        $('#wfn-remove-file').on('click', function() {
+        $('#wfn-remove-file').on('click', function () {
             $('#wfn-file-upload').val('');
             $('#wfn-file-preview').hide();
         });
@@ -580,7 +602,7 @@ jQuery(document).ready(function ($) {
         $(this).closest('.wfn-chat-box').remove();
     });
 
-    $(document).on('keypress', '.wfn-chat-input', function(e) {
+    $(document).on('keypress', '.wfn-chat-input', function (e) {
         if (e.which === 13) {
             $(this).closest('.wfn-chat-box').find('.wfn-chat-send').click();
         }
@@ -590,7 +612,7 @@ jQuery(document).ready(function ($) {
         $(this).closest('.wfn-comment-box').remove();
     });
 
-    $(window).off('resize.wfn'); 
+    $(window).off('resize.wfn');
 
     function loadPins() {
         if (typeof wfn_ajax === 'undefined') return;
@@ -602,7 +624,7 @@ jQuery(document).ready(function ($) {
         }, function (response) {
             if (response.success) {
                 $('.wfn-pin').remove();
-                
+
                 response.data.forEach(function (pin) {
                     addPinToScreen(pin.id, pin.meta.x, pin.meta.y, pin.meta.selector, pin.content, pin.replies, pin.image_url);
                 });
@@ -632,8 +654,8 @@ jQuery(document).ready(function ($) {
                 position: 'absolute'
             });
             appended = true;
-        } 
-        
+        }
+
         if (!appended) {
             if (!selector) {
                 $('body').append($pin);
@@ -643,7 +665,7 @@ jQuery(document).ready(function ($) {
                     position: 'absolute'
                 });
             } else {
-                 return; 
+                return;
             }
         }
 
