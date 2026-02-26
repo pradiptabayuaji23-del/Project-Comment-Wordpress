@@ -586,6 +586,18 @@ jQuery(document).ready(function ($) {
         $('#wfn-file-upload').on('change', function () {
             let file = this.files[0];
             if (file) {
+                let maxSize = 2 * 1024 * 1024; // 2MB
+                if (file.size > maxSize) {
+                    let sizeMB = (file.size / 1024 / 1024).toFixed(1);
+                    showWfnAlert({
+                        type: 'warning',
+                        title: 'Ukuran File Terlalu Besar',
+                        message: `File "${file.name}" berukuran ${sizeMB}MB. Batas maksimal upload adalah 2.0MB.`
+                    });
+                    $(this).val('');
+                    $('#wfn-file-preview').hide();
+                    return;
+                }
                 $('#wfn-filename').text(file.name);
                 $('#wfn-file-preview').show();
             }
