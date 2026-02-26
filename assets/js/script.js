@@ -586,6 +586,18 @@ jQuery(document).ready(function ($) {
         $('#wfn-file-upload').on('change', function () {
             let file = this.files[0];
             if (file) {
+                // Validasi tipe file: hanya image
+                if (!file.type.startsWith('image/')) {
+                    showWfnAlert({
+                        type: 'error',
+                        title: 'Format File Tidak Didukung',
+                        message: `File "${file.name}" bukan file gambar. Hanya file gambar (JPG, PNG, GIF, WebP) yang diperbolehkan.`
+                    });
+                    $(this).val('');
+                    $('#wfn-file-preview').hide();
+                    return;
+                }
+                // Validasi ukuran file: maks 2MB
                 let maxSize = 2 * 1024 * 1024; // 2MB
                 if (file.size > maxSize) {
                     let sizeMB = (file.size / 1024 / 1024).toFixed(1);
